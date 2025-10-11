@@ -16,6 +16,7 @@ secrets.toml
 
 # SQL files starting with "garmin_data"
 garmin_data*.sql
+garmin_data_backup0804
 
 # IDEs / Editors
 .vscode/
