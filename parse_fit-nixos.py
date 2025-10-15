@@ -22,7 +22,7 @@ import json
 import toml
 
 # The path to the folder with all FIT files to be processed
-# dir = r"C:\Users\heath\Documents\Garmin" # WINDOWS
+# dir = r"example activities/Activity/"
 dir = r"/home/heath/Documents/Updated Garmin/"  # LINUX
 file_extension = ".fit"
 
@@ -1022,7 +1022,7 @@ def get_dataframes(fname: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 # Function to extract the date from the filename
-def extract_date_from_filename(filename):
+def extract_date_from_filename_connect(filename):
     # Assuming the format is YYYY-mm-ddThh.mm.ss
     date_str = filename.split("T")[0]  # Extract the date part (YYYY-mm-dd)
     # time_str = filename.split('T')[1].split('.')[0:3]  # Extract the time part (hh.mm.ss)
@@ -1030,14 +1030,20 @@ def extract_date_from_filename(filename):
     # timestamp_str = date_str + 'T' + time_str  # Combine date and time parts
     return datetime.strptime(date_str, "%Y-%m-%d")
 
+def extract_date_from_filename_watch(filename):
+
+    date_str = filename.split(".")[0]
+    # return the year, month, and day of filename (which has the format below)
+    return datetime.strptime(date_str, "%Y- %m-%d-%H-%M-%S").date()
 
 if __name__ == "__main__":
     from os import listdir
     from os.path import isfile, join
     from datetime import datetime
+    from_garmin_connect = False
 
-    # latest date in the database
-    # Query the latest timestamp from the activity table before today
+    # latest date in the database or manually set it
+    # define our stopping point (because sometimes downloads for garmin will be a date in the future)
     today = datetime.now().date()
 
     # Convert the after_date and today to date objects (without time)
@@ -1051,50 +1057,54 @@ if __name__ == "__main__":
         f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
     ]
 
-    # Filter files based on the specific date
-    filtered_files = [
-        f for f in files if after_date < extract_date_from_filename(f) <= today
-    ]
-
-    json_files = [f.replace(file_extension, "_summary.json") for f in filtered_files]
-    errors = []
-    err_count = 0
-    swm_count = 0
-    index = [0]
-    for file in filtered_files:
-        try:
-            # fname = dir+"\\"+file# WINDOWS
-            fname = dir + file  # LINUX
-            jname = fname.replace(file_extension, "_summary.json")
-            activity_id = get_user_activity_details(fname)
-            lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
-                get_dataframes(fname)
-            )
-            print(activity_df)
-            # subset lap swimming activities here
-            jframe = pd.DataFrame(get_json_info(jname), index=index)
-            activity_df_fixed = pd.concat([activity_df, jframe], axis=1)
-            # print('user_activity:', activity_id)
-            # load to DB
-            load_dataframe_to_postgres(activity_df_fixed, "activity")
-            load_dataframe_to_postgres(file_id_df, "file_id")
-            load_dataframe_to_postgres(lap_df, "lap")
-            load_dataframe_to_postgres(record_df, "record")
-            load_dataframe_to_postgres(session_df, "session")
-            # try:
-            load_dataframe_to_postgres(length_df, "length")
-            # except:
-            #     swm_count += 1
-            # ERRORS ['10779726137', '10636216438', '10528926754', '8123112565', '6947713945', '11510943425', '13840205941', '15855828516', '16371670919', '16313355920', '16533124109', '16558142255', '16576282783', '16594262279', '16663462353', '16619751226', '16628552969']
-        except:
-            write_sql_statement_to_file(activity_df_fixed, "activity")
-            write_sql_statement_to_file(file_id_df, "file_id")
-            write_sql_statement_to_file(lap_df, "lap")
-            write_sql_statement_to_file(record_df, "record")
-            write_sql_statement_to_file(session_df, "session")
-            write_sql_statement_to_file(length_df, "length")
-            errors.append(activity_id)
-            err_count += 1
-    print("finished")
-    print("errors")
-    print(err_count)
+    if from_garmin_connect:
+        # Filter files based on the specific date
+        filtered_files = [
+            f for f in files if after_date < extract_date_from_filename_connect(f) <= today
+        ]
+        json_files = [f.replace(file_extension, "_summary.json") for f in filtered_files]
+        errors = []
+        err_count = 0
+        swm_count = 0
+        index = [0]
+        for file in filtered_files:
+            try:
+                # fname = dir+"\\"+file# WINDOWS
+                fname = dir + file  # LINUX
+                jname = fname.replace(file_extension, "_summary.json")
+                activity_id = get_user_activity_details(fname)
+                lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
+                    get_dataframes(fname)
+                )
+                print(activity_df)
+                # subset lap swimming activities here
+                jframe = pd.DataFrame(get_json_info(jname), index=index)
+                activity_df_fixed = pd.concat([activity_df, jframe], axis=1)
+                # print('user_activity:', activity_id)
+                # load to DB
+                load_dataframe_to_postgres(activity_df_fixed, "activity")
+                load_dataframe_to_postgres(file_id_df, "file_id")
+                load_dataframe_to_postgres(lap_df, "lap")
+                load_dataframe_to_postgres(record_df, "record")
+                load_dataframe_to_postgres(session_df, "session")
+                load_dataframe_to_postgres(length_df, "length")
+            except:
+                write_sql_statement_to_file(activity_df_fixed, "activity")
+                write_sql_statement_to_file(file_id_df, "file_id")
+                write_sql_statement_to_file(lap_df, "lap")
+                write_sql_statement_to_file(record_df, "record")
+                write_sql_statement_to_file(session_df, "session")
+                write_sql_statement_to_file(length_df, "length")
+                errors.append(activity_id)
+                err_count += 1
+        print("finished")
+        print("errors")
+        print(err_count)
+    else:
+        # files straight from the watch that just have the sensor data (no titles, description, etc yet)
+        # Filter files based on the specific date
+        filtered_files = [
+            f for f in files if after_date < extract_date_from_filename_watch(f) <= today
+        ]
+        for file in filtered_files:
+            fname = dir + file
