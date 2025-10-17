@@ -16,20 +16,21 @@ from datetime import datetime, timedelta
 from typing import Dict, Union, Optional, Tuple
 import os
 import pandas as pd
-import psycopg2
 import fitdecode
 import json
 import toml
 
 # The path to the folder with all FIT files to be processed
-# dir = r"example activities/Activity/"
-dir = r"/home/heath/Documents/Updated Garmin/"  # LINUX
+dir = r"example activities/Activity/"
+# dir = r"/home/heath/Documents/Updated Garmin/"  # LINUX
 file_extension = ".fit"
-
+test = True
 # Connection details for Postgresql DB.
-config = toml.load("secrets.toml")
-db_config = config["postgresql"]
-conn = psycopg2.connect(**db_config)
+if not test:
+    import psycopg2
+    config = toml.load("secrets.toml")
+    db_config = config["postgresql"]
+    conn = psycopg2.connect(**db_config)
 
 # The names of the columns we will use in our points DataFrame. For the data we will be getting
 # from the FIT data, we use the same name as the field names to make it easier to parse the data.
@@ -899,7 +900,7 @@ def get_fit_other_data(
     return data
 
 
-def get_dataframes(fname: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_dataframes(fname: str, activity_id: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Takes the path to a FIT file (as a string) and returns two Pandas
     DataFrames: one containing data about the laps, and one containing
     data about the individual points.
@@ -1034,13 +1035,13 @@ def extract_date_from_filename_watch(filename):
 
     date_str = filename.split(".")[0]
     # return the year, month, and day of filename (which has the format below)
-    return datetime.strptime(date_str, "%Y- %m-%d-%H-%M-%S").date()
+    return datetime.strptime(date_str, "%Y-%m-%d-%H-%M-%S").date()
 
 if __name__ == "__main__":
     from os import listdir
     from os.path import isfile, join
     from datetime import datetime
-    from_garmin_connect = False
+    from_garmin_connect = False # has to manually be set
 
     # latest date in the database or manually set it
     # define our stopping point (because sometimes downloads for garmin will be a date in the future)
@@ -1048,10 +1049,10 @@ if __name__ == "__main__":
 
     # Convert the after_date and today to date objects (without time)
     # after_date = datetime.combine(after_date, datetime.min.time())
-    after_date = datetime(2025, 10, 5, 0, 0, 0)
-    today = datetime(
-        2025, 10, 6, 0, 0, 0
-    )  # datetime.combine(today, datetime.min.time())
+    after_date = datetime(2025, 8, 2, 0, 0, 0).date()
+    # today = datetime(
+    #     2025, 10, 6, 0, 0, 0
+    # )  # datetime.combine(today, datetime.min.time())
 
     files = [
         f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
@@ -1108,3 +1109,14 @@ if __name__ == "__main__":
         ]
         for file in filtered_files:
             fname = dir + file
+
+            lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
+                   get_dataframes(fname, 1)
+               )
+            print(lap_df.head())
+            print(record_df.head())
+            print(file_id_df.head())
+            print(activity_df.head())
+            print(session_df.head())
+            # load avtivity and get activity id back 
+            # then load otheres
