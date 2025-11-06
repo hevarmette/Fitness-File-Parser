@@ -19,6 +19,8 @@ import pandas as pd
 import fitdecode
 import json
 import toml
+from os import listdir
+from os.path import isfile, join
 
 # The path to the folder with all FIT files to be processed
 dir = r"example activities/Activity/"
@@ -552,16 +554,14 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
     """
     # If log file path is not provided, create a default path in the same directory
     if log_file_path is None:
-        import os
-
         log_file_path = os.path.join(os.path.dirname(__file__), f"{tabl}_inserts.sql")
 
+    print(f"writing file to {log_file_path} . . .")
     # Open log file in write mode
     with open(log_file_path, "a") as log_file:
         log_file.write("\n\n")
         if not df.empty:
-            df = df.fillna(0).infer_objects(copy=False)
-            cursor = conn.cursor()
+            # df = df.fillna(0).infer_objects(copy=False)
 
             if tabl == "activity":
                 # must explicitly remove the timezone from local timestamp to send to db (it has no timezone there)
@@ -1038,9 +1038,7 @@ def extract_date_from_filename_watch(filename):
     return datetime.strptime(date_str, "%Y-%m-%d-%H-%M-%S").date()
 
 if __name__ == "__main__":
-    from os import listdir
-    from os.path import isfile, join
-    from datetime import datetime
+
     from_garmin_connect = False # has to manually be set
 
     # latest date in the database or manually set it
@@ -1103,7 +1101,7 @@ if __name__ == "__main__":
         print(err_count)
     else:
         # files straight from the watch that just have the sensor data (no titles, description, etc yet)
-        # Filter files based on the specific date
+        # Filter files based on the specific date (Augest 2nd rn)
         filtered_files = [
             f for f in files if after_date < extract_date_from_filename_watch(f) <= today
         ]
@@ -1113,10 +1111,19 @@ if __name__ == "__main__":
             lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
                    get_dataframes(fname, 1)
                )
-            print(lap_df.head())
-            print(record_df.head())
-            print(file_id_df.head())
-            print(activity_df.head())
-            print(session_df.head())
+            lap_df.to_csv('lap_data.csv', index=False)
+            record_df.to_csv('record_data.csv', index=False)
+            file_id_df.to_csv('file_id_data.csv', index=False)
+            activity_df.to_csv('activity_data.csv', index=False)
+            session_df.to_csv('session_data.csv', index=False)
             # load avtivity and get activity id back 
             # then load otheres
+            write_sql_statement_to_file(activity_df, "activity")
+            # TODO:
+ #            adjusted distance and duration need to defualt to the total_distance from total_distance of session df
+ #            Category needs to be null
+ #            defualt activity name to location and activity type. from session start_position_lat and start_position_long. type from type column of session df
+ #            description needs to be null
+ #            and Nones need to be sent as nulls
+
+
