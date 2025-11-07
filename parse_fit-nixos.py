@@ -536,6 +536,272 @@ def load_dataframe_to_postgres(df, tabl):
         conn.commit()
         cursor.close()
 
+def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
+    """Takes a dataframe and it's source FIT file type,
+    if dataframe is not empty then it is filled up with 0 for NaN values,
+    dataframe is checked against the general schema per FIT file type - proper data types are assigned to the columns,
+    through the iterations rows are sent to postgres DB with the use of INSERT INTO statement
+
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        The dataframe to be loaded into PostgreSQL
+    tabl : str
+        The name of the table to load data into
+    log_file_path : str, optional
+        Path to log file where SQL insert statements will be written
+    """
+    # If log file path is not provided, create a default path in the same directory
+    if log_file_path is None:
+        log_file_path = os.path.join(os.path.dirname(__file__), f"{tabl}_inserts.sql")
+
+    print(f"writing file to {log_file_path} . . .")
+    
+    # --- START OF CHANGES ---
+
+    def sql_format(value, quote=False):
+        """
+        Helper function to format Python values for a SQL statement.
+        - Converts None, np.nan, and pd.NaT to NULL.
+        - Quotes and escapes strings/datetimes.
+        """
+        # pd.isna() is a universal check for None, np.nan, and pd.NaT
+        if pd.isna(value):
+            return "NULL"
+        
+        if quote:
+            # Escape single quotes for SQL
+            safe_value = str(value).replace("'", "''")
+            return f"'{safe_value}'"
+        
+        # Return numbers/bools as-is
+        return str(value)
+
+    # --- END OF CHANGES ---
+
+
+    # Open log file in write mode
+    with open(log_file_path, "a") as log_file:
+        log_file.write("\n\n")
+        if not df.empty:
+            # df = df.fillna(0).infer_objects(copy=False)
+
+            if tabl == "activity":
+                # must explicitly remove the timezone from local timestamp to send to db (it has no timezone there)
+                if df["local_timestamp"].dtype.name.startswith("datetime64[ns,"):
+                    df["local_timestamp"] = df["local_timestamp"].dt.tz_localize(None)
+                # Define your desired dtype mappings
+                desired_dtypes = {
+                    "activity_id": "int64",
+                    "timestamp": "datetime64[ns, UTC]",
+                    "adjusted_distance": "float64",
+                    "adjusted_duration": "float64",
+                    "workout_feel": "int64",
+                    "effort": "int64",
+                    "category": "object",
+                    "activity_name": "object",
+                    "description": "object",
+                    "total_timer_time": "float64",
+                    "local_timestamp": "datetime64[ns]",
+                    "num_sessions": "int64",
+                    "type": "object",
+                    "event": "object",
+                    "event_type": "object",
+                    "event_group": "object",
+                }
+
+                # Filter to only include columns that exist in the DataFrame
+                existing_dtypes = {
+                    col: dtype
+                    for col, dtype in desired_dtypes.items()
+                    if col in df.columns
+                }
+
+                # Apply the conversion
+                df = df.astype(existing_dtypes)
+
+                for col in desired_dtypes.keys():
+                    if col not in df.columns:
+                        df[col] = None
+                
+                # --- CHANGE ---
+                # This complex block is no longer needed,
+                # as the sql_format function will handle escaping for all
+                # string fields, not just 'description'.
+                #
+                # if "description" in df.columns:
+                #     ... (removed old logic) ...
+                
+                # --- CHANGE ---
+                # We standardize all null types (np.nan, pd.NaT) to None
+                # This isn't strictly necessary since sql_format uses pd.isna(),
+                # but it makes the row data cleaner before formatting.
+                # df = df.where(pd.notna(df), None)
+
+                for index, row in df.iterrows():
+                    
+                    # --- CHANGE ---
+                    # Use the new sql_format() helper for every value
+                    sql = f"""INSERT INTO activity(activity_id, timestamp, adjusted_distance, adjusted_duration, workout_feel, effort, category, activity_name, description, total_timer_time, local_timestamp, num_sessions, type, event, event_type, event_group)
+                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.adjusted_distance)}, {sql_format(row.adjusted_duration)}, {sql_format(row.workout_feel)}, {sql_format(row.effort)}, {sql_format(row.category, quote=True)}, {sql_format(row.activity_name, quote=True)}, {sql_format(row.description, quote=True)}, {sql_format(row.total_timer_time)}, {sql_format(row.local_timestamp, quote=True)}, {sql_format(row.num_sessions)}, {sql_format(row.type, quote=True)}, {sql_format(row.event, quote=True)}, {sql_format(row.event_type, quote=True)}, {sql_format(row.event_group, quote=True)})
+                    ON CONFLICT (activity_id) DO NOTHING;"""
+
+                    # Write to log file
+                    log_file.write(sql + "\n")
+
+            elif tabl == "session":
+                    # *** REVIEW/EDIT THIS SCHEMA ***
+                    desired_dtypes = {
+                        "activity_id": "int64",
+                        "timestamp": "datetime64[ns, UTC]",
+                        "start_time": "datetime64[ns, UTC]",
+                        "total_elapsed_time": "float64",
+                        "total_timer_time": "float64",
+                        "total_distance": "float64",
+                        "event": "object",
+                        "event_type": "object",
+                        "sport": "object",
+                        "sub_sport": "object"
+                    }
+
+                    existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
+                    if existing_dtypes:
+                        df = df.astype(existing_dtypes)
+                    
+                    for col in desired_dtypes.keys():
+                        if col not in df.columns:
+                            df[col] = None
+
+                    for index, row in df.iterrows():
+                        # *** REVIEW/EDIT THIS INSERT STATEMENT ***
+                        sql = f"""INSERT INTO session(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, event, event_type, sport, sub_sport)
+                        VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.start_time, quote=True)}, {sql_format(row.total_elapsed_time)}, {sql_format(row.total_timer_time)}, {sql_format(row.total_distance)}, {sql_format(row.event, quote=True)}, {sql_format(row.event_type, quote=True)}, {sql_format(row.sport, quote=True)}, {sql_format(row.sub_sport, quote=True)})
+                        ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                        log_file.write(sql + "\n")
+
+            # --- Lap Table ---
+            elif tabl == "lap":
+                # *** REVIEW/EDIT THIS SCHEMA ***
+                desired_dtypes = {
+                    "activity_id": "int64",
+                    "timestamp": "datetime64[ns, UTC]",
+                    "start_time": "datetime64[ns, UTC]",
+                    "total_elapsed_time": "float64",
+                    "total_timer_time": "float64",
+                    "total_distance": "float64",
+                    "avg_speed": "float64",
+                    "max_speed": "float64",
+                    "total_calories": "int64"
+                }
+
+                existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
+                if existing_dtypes:
+                    df = df.astype(existing_dtypes)
+                
+                for col in desired_dtypes.keys():
+                    if col not in df.columns:
+                        df[col] = None
+
+                for index, row in df.iterrows():
+                    # *** REVIEW/EDIT THIS INSERT STATEMENT ***
+                    sql = f"""INSERT INTO lap(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, avg_speed, max_speed, total_calories)
+                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.start_time, quote=True)}, {sql_format(row.total_elapsed_time)}, {sql_format(row.total_timer_time)}, {sql_format(row.total_distance)}, {sql_format(row.avg_speed)}, {sql_format(row.max_speed)}, {sql_format(row.total_calories)})
+                    ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                    log_file.write(sql + "\n")
+
+            # --- Record Table ---
+            elif tabl == "record":
+                # *** REVIEW/EDIT THIS SCHEMA ***
+                desired_dtypes = {
+                    "activity_id": "int64",
+                    "timestamp": "datetime64[ns, UTC]",
+                    "position_lat": "float64",
+                    "position_long": "float64",
+                    "distance": "float64",
+                    "altitude": "float64",
+                    "speed": "float64",
+                    "heart_rate": "int64",
+                    "cadence": "int64",
+                    "power": "int64"
+                }
+
+                existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
+                if existing_dtypes:
+                    df = df.astype(existing_dtypes)
+                
+                for col in desired_dtypes.keys():
+                    if col not in df.columns:
+                        df[col] = None
+
+                for index, row in df.iterrows():
+                    # *** REVIEW/EDIT THIS INSERT STATEMENT ***
+                    sql = f"""INSERT INTO record(activity_id, timestamp, position_lat, position_long, distance, altitude, speed, heart_rate, cadence, power)
+                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.position_lat)}, {sql_format(row.position_long)}, {sql_format(row.distance)}, {sql_format(row.altitude)}, {sql_format(row.speed)}, {sql_format(row.heart_rate)}, {sql_format(row.cadence)}, {sql_format(row.power)})
+                    ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                    log_file.write(sql + "\n")
+
+            # --- File ID Table ---
+            elif tabl == "file_id":
+                # *** REVIEW/EDIT THIS SCHEMA ***
+                desired_dtypes = {
+                    "activity_id": "int64",
+                    "type": "object",
+                    "manufacturer": "object",
+                    "product": "int64",
+                    "serial_number": "int64",
+                    "time_created": "datetime64[ns, UTC]",
+                    "number": "int64"
+                }
+
+                existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
+                if existing_dtypes:
+                    df = df.astype(existing_dtypes)
+                
+                for col in desired_dtypes.keys():
+                    if col not in df.columns:
+                        df[col] = None
+
+                for index, row in df.iterrows():
+                    # *** REVIEW/EDIT THIS INSERT STATEMENT ***
+                    sql = f"""INSERT INTO file_id(activity_id, type, manufacturer, product, serial_number, time_created, number)
+                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.type, quote=True)}, {sql_format(row.manufacturer, quote=True)}, {sql_format(row.product)}, {sql_format(row.serial_number)}, {sql_format(row.time_created, quote=True)}, {sql_format(row.number)})
+                    ON CONFLICT (activity_id) DO NOTHING;"""  # <-- Ensure conflict key is correct
+                    log_file.write(sql + "\n")
+
+            # --- Length Table ---
+            elif tabl == "length":
+                # *** REVIEW/EDIT THIS SCHEMA ***
+                desired_dtypes = {
+                    "activity_id": "int64",
+                    "timestamp": "datetime64[ns, UTC]",
+                    "start_time": "datetime64[ns, UTC]",
+                    "total_elapsed_time": "float64",
+                    "total_timer_time": "float64",
+                    "total_strokes": "int64",
+                    "avg_speed": "float64",
+                    "swim_stroke": "object"
+                }
+
+                existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
+                if existing_dtypes:
+                    # This was the typo in the previous version
+                    df = df.astype(existing_dtypes) 
+                
+                for col in desired_dtypes.keys():
+                    if col not in df.columns:
+                        df[col] = None
+
+                for index, row in df.iterrows():
+                    # *** REVIEW/EDIT THIS INSERT STATEMENT ***
+                    sql = f"""INSERT INTO length(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_strokes, avg_speed, swim_stroke)
+                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.start_time, quote=True)}, {sql_format(row.total_elapsed_time)}, {sql_format(row.total_timer_time)}, {sql_format(row.total_strokes)}, {sql_format(row.avg_speed)}, {sql_format(row.swim_stroke, quote=True)})
+                    ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                    log_file.write(sql + "\n")
+
+            # --- Else: Unknown Table ---
+            else:
+                print(f"Warning: No specific SQL generation logic defined for table '{tabl}'. No statements written.")
+
 
 def write_sql_statement_to_file(df, tabl, log_file_path=None):
     """Takes a dataframe and it's source FIT file type,
@@ -1081,19 +1347,19 @@ if __name__ == "__main__":
                 activity_df_fixed = pd.concat([activity_df, jframe], axis=1)
                 # print('user_activity:', activity_id)
                 # load to DB
-                load_dataframe_to_postgres(activity_df_fixed, "activity")
-                load_dataframe_to_postgres(file_id_df, "file_id")
-                load_dataframe_to_postgres(lap_df, "lap")
-                load_dataframe_to_postgres(record_df, "record")
-                load_dataframe_to_postgres(session_df, "session")
-                load_dataframe_to_postgres(length_df, "length")
+            #     load_dataframe_to_postgres(activity_df_fixed, "activity")
+            #     load_dataframe_to_postgres(file_id_df, "file_id")
+            #     load_dataframe_to_postgres(lap_df, "lap")
+            #     load_dataframe_to_postgres(record_df, "record")
+            #     load_dataframe_to_postgres(session_df, "session")
+            #     load_dataframe_to_postgres(length_df, "length")
             except:
-                write_sql_statement_to_file(activity_df_fixed, "activity")
-                write_sql_statement_to_file(file_id_df, "file_id")
-                write_sql_statement_to_file(lap_df, "lap")
-                write_sql_statement_to_file(record_df, "record")
-                write_sql_statement_to_file(session_df, "session")
-                write_sql_statement_to_file(length_df, "length")
+            #     write_sql_statement_to_file(activity_df_fixed, "activity")
+            #     write_sql_statement_to_file(file_id_df, "file_id")
+            #     write_sql_statement_to_file(lap_df, "lap")
+            #     write_sql_statement_to_file(record_df, "record")
+            #     write_sql_statement_to_file(session_df, "session")
+            #     write_sql_statement_to_file(length_df, "length")
                 errors.append(activity_id)
                 err_count += 1
         print("finished")
@@ -1111,19 +1377,21 @@ if __name__ == "__main__":
             lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
                    get_dataframes(fname, 1)
                )
-            lap_df.to_csv('lap_data.csv', index=False)
-            record_df.to_csv('record_data.csv', index=False)
-            file_id_df.to_csv('file_id_data.csv', index=False)
-            activity_df.to_csv('activity_data.csv', index=False)
-            session_df.to_csv('session_data.csv', index=False)
+            # lap_df.to_csv('lap_data.csv', index=False)
+            # record_df.to_csv('record_data.csv', index=False)
+            # file_id_df.to_csv('file_id_data.csv', index=False)
+            # activity_df.to_csv('activity_data.csv', index=False)
+            # session_df.to_csv('session_data.csv', index=False)
             # load avtivity and get activity id back 
             # then load otheres
-            write_sql_statement_to_file(activity_df, "activity")
+            write_sql_statement_to_file_watch(activity_df, "activity")
+            # write_sql_statement_to_file_watch(file_id_df, "file_id")
+            write_sql_statement_to_file_watch(lap_df, "lap")
+            write_sql_statement_to_file_watch(record_df, "record")
+            write_sql_statement_to_file_watch(session_df, "session")
+            write_sql_statement_to_file_watch(length_df, "length")
             # TODO:
- #            adjusted distance and duration need to defualt to the total_distance from total_distance of session df
- #            Category needs to be null
+ #            adjusted_distance and adjusted_duration need to defualt to the total_distance from total_distance of session df
  #            defualt activity name to location and activity type. from session start_position_lat and start_position_long. type from type column of session df
- #            description needs to be null
- #            and Nones need to be sent as nulls
 
 
