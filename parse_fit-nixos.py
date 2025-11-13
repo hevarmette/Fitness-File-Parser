@@ -1,16 +1,16 @@
-"""Some functions for parsing a FIT files mandatory tables (activity, file_id, session, lap and record)
-and creating a Pandas DataFrame with the data, bulk upload for dataframes to PostgreSQL DB
-GET INFORMATION FROM SUMMARY_JSON AND FIX LAT AND LONG FROM
-FROM SUMMARY_JSON: Distance because manually edited distances will not be in .fit file
-Duration for same reason
-"summaryDTO.distance": "Distance",
-"summaryDTO.duration": "Duration",
-"summaryDTO.directWorkoutFeel": "Workout Feel",
-"summaryDTO.directWorkoutRpe": "Effort",
-"eventTypeDTO.typeKey": "Category",
-"activityName": "Activity Name",
-"description": "Description"
-"""
+# Some functions for parsing a FIT files mandatory tables (activity, file_id, session, lap and record)
+# and creating a Pandas DataFrame with the data, bulk upload for dataframes to PostgreSQL DB
+# GET INFORMATION FROM SUMMARY_JSON AND FIX LAT AND LONG FROM
+# FROM SUMMARY_JSON: Distance because manually edited distances will not be in .fit file
+# Duration for same reason
+# "summaryDTO.distance": "Distance",
+# "summaryDTO.duration": "Duration",
+# "summaryDTO.directWorkoutFeel": "Workout Feel",
+# "summaryDTO.directWorkoutRpe": "Effort",
+# "eventTypeDTO.typeKey": "Category",
+# "activityName": "Activity Name",
+# "description": "Description"
+
 
 from datetime import datetime, timedelta
 from typing import Dict, Union, Optional, Tuple
@@ -272,22 +272,22 @@ def load_dataframe_to_postgres(df, tabl):
                     """insert into activity(activity_id, timestamp, adjusted_distance, adjusted_duration, workout_feel, effort, category, activity_name, description, total_timer_time, local_timestamp, num_sessions, type, event, event_type, event_group)
                 values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     [
-                        row.activity_id,
-                        row.timestamp,
-                        row.adjusted_distance,
-                        row.adjusted_duration,
-                        row.workout_feel,
-                        row.effort,
-                        row.category,
-                        row.activity_name,
-                        row.description,
-                        row.total_timer_time,
-                        row.local_timestamp,
-                        row.num_sessions,
-                        row.type,
-                        row.event,
-                        row.event_type,
-                        row.event_group,
+                        row['activity_id'],
+                        row['timestamp'],
+                        row['adjusted_distance'],
+                        row['adjusted_duration'],
+                        row['workout_feel'],
+                        row['effort'],
+                        row['category'],
+                        row['activity_name'],
+                        row['description'],
+                        row['total_timer_time'],
+                        row['local_timestamp'],
+                        row['num_sessions'],
+                        row['type'],
+                        row['event'],
+                        row['event_type'],
+                        row['event_group'],
                     ],
                 )
 
@@ -309,13 +309,13 @@ def load_dataframe_to_postgres(df, tabl):
                     """insert into file_id(activity_id, serial_number, time_created, manufacturer, product, number, type)
                 values (%s, %s, %s, %s, %s, %s, %s)""",
                     [
-                        row.activity_id,
-                        row.serial_number,
-                        row.time_created,
-                        row.manufacturer,
-                        row.product_name,
-                        row.number,
-                        row.type,
+                        row['activity_id'],
+                        row['serial_number'],
+                        row['time_created'],
+                        row['manufacturer'],
+                        row['product_name'],
+                        row['number'],
+                        row['type'],
                     ],
                 )
 
@@ -352,22 +352,22 @@ def load_dataframe_to_postgres(df, tabl):
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     [
-                        row.activity_id,
-                        row.number,
-                        row.start_time,
-                        row.total_distance,
-                        row.total_timer_time,
-                        row.total_ascent,
-                        row.total_descent,
-                        row.avg_vertical_oscillation,
-                        row.avg_stance_time,
-                        row.avg_vertical_ratio,
-                        row.avg_stance_time_balance,
-                        row.avg_step_length,
-                        row.intensity,
-                        row.avg_running_cadence,
-                        row.max_heart_rate,
-                        row.avg_heart_rate,
+                        row['activity_id'],
+                        row['number'],
+                        row['start_time'],
+                        row['total_distance'],
+                        row['total_timer_time'],
+                        row['total_ascent'],
+                        row['total_descent'],
+                        row['avg_vertical_oscillation'],
+                        row['avg_stance_time'],
+                        row['avg_vertical_ratio'],
+                        row['avg_stance_time_balance'],
+                        row['avg_step_length'],
+                        row['intensity'],
+                        row['avg_running_cadence'],
+                        row['max_heart_rate'],
+                        row['avg_heart_rate'],
                     ],
                 )
 
@@ -392,17 +392,17 @@ def load_dataframe_to_postgres(df, tabl):
                     """insert into record(activity_id, latitude, longitude, lap, altitude, timestamp, heart_rate, cadence, fractional_cadence, enhanced_speed, distance)
                 values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     [
-                        row.activity_id,
-                        row.latitude,
-                        row.longitude,
-                        row.lap,
-                        row.altitude,
-                        row.timestamp,
-                        row.heart_rate,
-                        row.cadence,
-                        row.fractional_cadence,
-                        row.enhanced_speed,
-                        row.distance,
+                        row['activity_id'],
+                        row['latitude'],
+                        row['longitude'],
+                        row['lap'],
+                        row['altitude'],
+                        row['timestamp'],
+                        row['heart_rate'],
+                        row['cadence'],
+                        row['fractional_cadence'],
+                        row['enhanced_speed'],
+                        row['distance'],
                     ],
                 )
 
@@ -460,45 +460,45 @@ def load_dataframe_to_postgres(df, tabl):
                 total_training_effect, event_group, trigger, pool_length, pool_length_unit) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                 %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, %s, %s)""",
                     [
-                        row.activity_id,
-                        row.timestamp,
-                        row.start_time,
-                        row.start_position_lat,
-                        row.start_position_long,
-                        row.total_elapsed_time,
-                        row.total_timer_time,
-                        row.total_distance,
-                        row.total_strokes,
-                        row.nec_lat,
-                        row.nec_long,
-                        row.swc_lat,
-                        row.swc_long,
-                        row.message_index,
-                        row.total_calories,
-                        row.total_fat_calories,
-                        row.enhanced_avg_speed,
-                        row.avg_speed,
-                        row.enhanced_max_speed,
-                        row.max_speed,
-                        row.avg_power,
-                        row.max_power,
-                        row.total_ascent,
-                        row.total_descent,
-                        row.first_lap_index,
-                        row.num_laps,
-                        row.event,
-                        row.event_type,
-                        row.sport,
-                        row.sub_sport,
-                        row.avg_heart_rate,
-                        row.max_heart_rate,
-                        row.avg_cadence,
-                        row.max_cadence,
-                        row.total_training_effect,
-                        row.event_group,
-                        row.trigger,
-                        row.pool_length,
-                        row.pool_length_unit,
+                        row['activity_id'],
+                        row['timestamp'],
+                        row['start_time'],
+                        row['start_position_lat'],
+                        row['start_position_long'],
+                        row['total_elapsed_time'],
+                        row['total_timer_time'],
+                        row['total_distance'],
+                        row['total_strokes'],
+                        row['nec_lat'],
+                        row['nec_long'],
+                        row['swc_lat'],
+                        row['swc_long'],
+                        row['message_index'],
+                        row['total_calories'],
+                        row['total_fat_calories'],
+                        row['enhanced_avg_speed'],
+                        row['avg_speed'],
+                        row['enhanced_max_speed'],
+                        row['max_speed'],
+                        row['avg_power'],
+                        row['max_power'],
+                        row['total_ascent'],
+                        row['total_descent'],
+                        row['first_lap_index'],
+                        row['num_laps'],
+                        row['event'],
+                        row['event_type'],
+                        row['sport'],
+                        row['sub_sport'],
+                        row['avg_heart_rate'],
+                        row['max_heart_rate'],
+                        row['avg_cadence'],
+                        row['max_cadence'],
+                        row['total_training_effect'],
+                        row['event_group'],
+                        row['trigger'],
+                        row['pool_length'],
+                        row['pool_length_unit'],
                     ],
                 )
 
@@ -521,15 +521,15 @@ def load_dataframe_to_postgres(df, tabl):
                 cursor.execute(
                     """insert into length(activity_id, timestamp, start_time, message_index, total_timer_time, total_strokes, avg_speed, swim_stroke, length_type) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     [
-                        row.activity_id,
-                        row.timestamp,
-                        row.start_time,
-                        row.message_index,
-                        row.total_timer_time,
-                        row.total_strokes,
-                        row.avg_speed,
-                        row.swim_stroke,
-                        row.length_type,
+                        row['activity_id'],
+                        row['timestamp'],
+                        row['start_time'],
+                        row['message_index'],
+                        row['total_timer_time'],
+                        row['total_strokes'],
+                        row['avg_speed'],
+                        row['swim_stroke'],
+                        row['length_type'],
                     ],
                 )
 
@@ -643,7 +643,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                     # --- CHANGE ---
                     # Use the new sql_format() helper for every value
                     sql = f"""INSERT INTO activity(activity_id, timestamp, adjusted_distance, adjusted_duration, workout_feel, effort, category, activity_name, description, total_timer_time, local_timestamp, num_sessions, type, event, event_type, event_group)
-                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.adjusted_distance)}, {sql_format(row.adjusted_duration)}, {sql_format(row.workout_feel)}, {sql_format(row.effort)}, {sql_format(row.category, quote=True)}, {sql_format(row.activity_name, quote=True)}, {sql_format(row.description, quote=True)}, {sql_format(row.total_timer_time)}, {sql_format(row.local_timestamp, quote=True)}, {sql_format(row.num_sessions)}, {sql_format(row.type, quote=True)}, {sql_format(row.event, quote=True)}, {sql_format(row.event_type, quote=True)}, {sql_format(row.event_group, quote=True)})
+                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['adjusted_distance'])}, {sql_format(row['adjusted_duration'])}, {sql_format(row['workout_feel'])}, {sql_format(row['effort'])}, {sql_format(row['category'], quote=True)}, {sql_format(row['activity_name'], quote=True)}, {sql_format(row['description'], quote=True)}, {sql_format(row['total_timer_time'])}, {sql_format(row['local_timestamp'], quote=True)}, {sql_format(row['num_sessions'])}, {sql_format(row['type'], quote=True)}, {sql_format(row['event'], quote=True)}, {sql_format(row['event_type'], quote=True)}, {sql_format(row['event_group'], quote=True)})
                     ON CONFLICT (activity_id) DO NOTHING;"""
 
                     # Write to log file
@@ -675,7 +675,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                     for index, row in df.iterrows():
                         # *** REVIEW/EDIT THIS INSERT STATEMENT ***
                         sql = f"""INSERT INTO session(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, event, event_type, sport, sub_sport)
-                        VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.start_time, quote=True)}, {sql_format(row.total_elapsed_time)}, {sql_format(row.total_timer_time)}, {sql_format(row.total_distance)}, {sql_format(row.event, quote=True)}, {sql_format(row.event_type, quote=True)}, {sql_format(row.sport, quote=True)}, {sql_format(row.sub_sport, quote=True)})
+                        VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['start_time'], quote=True)}, {sql_format(row['total_elapsed_time'])}, {sql_format(row['total_timer_time'])}, {sql_format(row['total_distance'])}, {sql_format(row['event'], quote=True)}, {sql_format(row['event_type'], quote=True)}, {sql_format(row['sport'], quote=True)}, {sql_format(row['sub_sport'], quote=True)})
                         ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
                         log_file.write(sql + "\n")
 
@@ -705,7 +705,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 for index, row in df.iterrows():
                     # *** REVIEW/EDIT THIS INSERT STATEMENT ***
                     sql = f"""INSERT INTO lap(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, avg_speed, max_speed, total_calories)
-                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.start_time, quote=True)}, {sql_format(row.total_elapsed_time)}, {sql_format(row.total_timer_time)}, {sql_format(row.total_distance)}, {sql_format(row.avg_speed)}, {sql_format(row.max_speed)}, {sql_format(row.total_calories)})
+                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['start_time'], quote=True)}, {sql_format(row['total_elapsed_time'])}, {sql_format(row['total_timer_time'])}, {sql_format(row['total_distance'])}, {sql_format(row['avg_speed'])}, {sql_format(row['max_speed'])}, {sql_format(row['total_calories'])})
                     ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
                     log_file.write(sql + "\n")
 
@@ -715,8 +715,8 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 desired_dtypes = {
                     "activity_id": "int64",
                     "timestamp": "datetime64[ns, UTC]",
-                    "position_lat": "float64",
-                    "position_long": "float64",
+                    "latitude": "float64",
+                    "longitude": "float64",
                     "distance": "float64",
                     "altitude": "float64",
                     "speed": "float64",
@@ -735,37 +735,49 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
                 for index, row in df.iterrows():
                     # *** REVIEW/EDIT THIS INSERT STATEMENT ***
-                    sql = f"""INSERT INTO record(activity_id, timestamp, position_lat, position_long, distance, altitude, speed, heart_rate, cadence, power)
-                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.position_lat)}, {sql_format(row.position_long)}, {sql_format(row.distance)}, {sql_format(row.altitude)}, {sql_format(row.speed)}, {sql_format(row.heart_rate)}, {sql_format(row.cadence)}, {sql_format(row.power)})
+                    sql = f"""INSERT INTO record(activity_id, timestamp, latitude, longitude, distance, altitude, speed, heart_rate, cadence, power)
+                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['latitude'])}, {sql_format(row['longitude'])}, {sql_format(row['distance'])}, {sql_format(row['altitude'])}, {sql_format(row['speed'])}, {sql_format(row['heart_rate'])}, {sql_format(row['cadence'])}, {sql_format(row['power'])})
                     ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
                     log_file.write(sql + "\n")
 
             # --- File ID Table ---
-            elif tabl == "file_id":
-                # *** REVIEW/EDIT THIS SCHEMA ***
-                desired_dtypes = {
-                    "activity_id": "int64",
-                    "type": "object",
-                    "manufacturer": "object",
-                    "product": "int64",
-                    "serial_number": "int64",
-                    "time_created": "datetime64[ns, UTC]",
-                    "number": "int64"
-                }
-
-                existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
-                if existing_dtypes:
-                    df = df.astype(existing_dtypes)
-                
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
-                        df[col] = None
-
-                for index, row in df.iterrows():
-                    # *** REVIEW/EDIT THIS INSERT STATEMENT ***
-                    sql = f"""INSERT INTO file_id(activity_id, type, manufacturer, product, serial_number, time_created, number)
-                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.type, quote=True)}, {sql_format(row.manufacturer, quote=True)}, {sql_format(row.product)}, {sql_format(row.serial_number)}, {sql_format(row.time_created, quote=True)}, {sql_format(row.number)})
-                    ON CONFLICT (activity_id) DO NOTHING;"""  # <-- Ensure conflict key is correct
+            elif tabl == "file_id":
+                # *** REVIEW/EDIT THIS SCHEMA ***
+                desired_dtypes = {
+                    "activity_id": "int64",
+                    "type": "object",
+                    "manufacturer": "object",
+                    "product": "int64",
+                    "serial_number": "int64",
+                    "time_created": "datetime64[ns, UTC]",
+                    "number": "float"  # Changed from int64 to float to handle NaN
+                }
+
+                existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
+                
+                if existing_dtypes:
+                    # Handle potential conversion errors if 'product' is not purely numeric
+                    for col, dtype in existing_dtypes.items():
+                        try:
+                            if dtype == "int64":
+                                # Convert to float first to handle NaNs, then to nullable Int64
+                                df[col] = pd.to_numeric(df[col], errors='coerce').astype('float').astype('Int64')
+                            else:
+                                df = df.astype({col: dtype})
+                        except Exception as e:
+                            print(f"Error casting column {col} to {dtype}: {e}. Forcing to object.")
+                            df = df.astype({col: 'object'}) # Fallback
+                
+                for col in desired_dtypes.keys():
+                    if col not in df.columns:
+                        df[col] = None
+
+                for index, row in df.iterrows():
+                    # *** THIS IS THE FIX ***
+                    # Changed all `row['column']` to `row['column']`
+                    sql = f"""INSERT INTO file_id(activity_id, type, manufacturer, product, serial_number, time_created, number)
+                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['type'], quote=True)}, {sql_format(row['manufacturer'], quote=True)}, {sql_format(row['product'])}, {sql_format(row['serial_number'])}, {sql_format(row['time_created'], quote=True)}, {sql_format(row['number'])})
+                    ON CONFLICT (activity_id) DO NOTHING;"""  # <-- Ensure conflict key is correct
                     log_file.write(sql + "\n")
 
             # --- Length Table ---
@@ -794,7 +806,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 for index, row in df.iterrows():
                     # *** REVIEW/EDIT THIS INSERT STATEMENT ***
                     sql = f"""INSERT INTO length(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_strokes, avg_speed, swim_stroke)
-                    VALUES ({sql_format(row.activity_id)}, {sql_format(row.timestamp, quote=True)}, {sql_format(row.start_time, quote=True)}, {sql_format(row.total_elapsed_time)}, {sql_format(row.total_timer_time)}, {sql_format(row.total_strokes)}, {sql_format(row.avg_speed)}, {sql_format(row.swim_stroke, quote=True)})
+                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['start_time'], quote=True)}, {sql_format(row['total_elapsed_time'])}, {sql_format(row['total_timer_time'])}, {sql_format(row['total_strokes'])}, {sql_format(row['avg_speed'])}, {sql_format(row['swim_stroke'], quote=True)})
                     ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
                     log_file.write(sql + "\n")
 
@@ -877,7 +889,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                 for index, row in df.iterrows():
                     # Prepare SQL insert statement with proper escaping
                     sql = f"""INSERT INTO activity(activity_id, timestamp, adjusted_distance, adjusted_duration, workout_feel, effort, category, activity_name, description, total_timer_time, local_timestamp, num_sessions, type, event, event_type, event_group)
-                    VALUES ({row.activity_id}, '{row.timestamp}', {row.adjusted_distance}, {row.adjusted_duration}, {row.workout_feel}, {row.effort}, '{row.category}', '{row.activity_name}', '{row.description}', {row.total_timer_time}, '{row.local_timestamp}', {row.num_sessions}, '{row.type}', '{row.event}', '{row.event_type}', '{row.event_group}')
+                    VALUES ({row['activity_id']}, '{row['timestamp']}', {row['adjusted_distance']}, {row['adjusted_duration']}, {row['workout_feel']}, {row['effort']}, '{row['category']}', '{row['activity_name']}', '{row['description']}', {row['total_timer_time']}, '{row['local_timestamp']}', {row['num_sessions']}, '{row['type']}', '{row['event']}', '{row['event_type']}', '{row['event_group']}')
                     ON CONFLICT (activity_id) DO NOTHING;"""
 
                     # Write to log file
@@ -885,7 +897,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
 
                     # Execute in database
                     # cursor.execute("""insert into activity(activity_id, timestamp, adjusted_distance, adjusted_duration, workout_feel, effort, category, activity_name, description, total_timer_time, local_timestamp, num_sessions, type, event, event_type, event_group)
-                    # values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", [row.activity_id, row.timestamp, row.adjusted_distance, row.adjusted_duration, row.workout_feel, row.effort, row.category, row.activity_name, row.description, row.total_timer_time, row.local_timestamp, row.num_sessions, row.type, row.event, row.event_type, row.event_group])
+                    # values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", [row['activity_id'], row['timestamp'], row['adjusted_distance'], row['adjusted_duration'], row['workout_feel'], row['effort'], row['category'], row['activity_name'], row['description'], row['total_timer_time'], row['local_timestamp'], row['num_sessions'], row['type'], row['event'], row['event_type'], row['event_group']])
 
             elif tabl == "file_id":
                 df.rename(columns={"product": "product_name"}, inplace=True)
@@ -903,14 +915,14 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                 for index, row in df.iterrows():
                     # Prepare SQL insert statement with proper escaping
                     sql = f"""INSERT INTO file_id(activity_id, serial_number, time_created, manufacturer, product, number, type)
-                    VALUES ({row.activity_id}, {row.serial_number}, '{row.time_created}', '{row.manufacturer}', '{row.product_name}', {row.number}, '{row.type}');"""
+                    VALUES ({row['activity_id']}, {row['serial_number']}, '{row['time_created']}', '{row['manufacturer']}', '{row['product_name']}', {row['number']}, '{row['type']}');"""
 
                     # Write to log file
                     log_file.write(sql + "\n")
 
                     # Execute in database
                     # cursor.execute("""insert into file_id(activity_id, serial_number, time_created, manufacturer, product, number, type)
-                    # values (%s, %s, %s, %s, %s, %s, %s)""", [row.activity_id, row.serial_number, row.time_created, row.manufacturer, row.product_name, row.number, row.type])
+                    # values (%s, %s, %s, %s, %s, %s, %s)""", [row['activity_id'], row['serial_number'], row['time_created'], row['manufacturer'], row['product_name'], row['number'], row['type']])
 
             elif tabl == "lap":
                 available_dtypes = {
@@ -949,11 +961,11 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                         avg_vertical_ratio, avg_stance_time_balance, avg_step_length, intensity,
                         avg_running_cadence, max_heart_rate, avg_heart_rate
                     ) VALUES (
-                        {row.activity_id}, {row.number}, '{row.start_time}', {row.total_distance},
-                        {row.total_timer_time}, {row.total_ascent}, {row.total_descent},
-                        {row.avg_vertical_oscillation}, {row.avg_stance_time}, {row.avg_vertical_ratio},
-                        {row.avg_stance_time_balance}, {row.avg_step_length}, '{row.intensity}',
-                        {row.avg_running_cadence}, {row.max_heart_rate}, {row.avg_heart_rate}
+                        {row['activity_id']}, {row['number']}, '{row['start_time']}', {row['total_distance']},
+                        {row['total_timer_time']}, {row['total_ascent']}, {row['total_descent']},
+                        {row['avg_vertical_oscillation']}, {row['avg_stance_time']}, {row['avg_vertical_ratio']},
+                        {row['avg_stance_time_balance']}, {row['avg_step_length']}, '{row['intensity']}',
+                        {row['avg_running_cadence']}, {row['max_heart_rate']}, {row['avg_heart_rate']}
                     );"""
 
                     # Write to log file
@@ -969,11 +981,11 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     #     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     #     """,
                     #     [
-                    #         row.activity_id, row.number, row.start_time, row.total_distance,
-                    #         row.total_timer_time, row.total_ascent, row.total_descent,
-                    #         row.avg_vertical_oscillation, row.avg_stance_time, row.avg_vertical_ratio,
-                    #         row.avg_stance_time_balance, row.avg_step_length, row.intensity,
-                    #         row.avg_running_cadence, row.max_heart_rate, row.avg_heart_rate,
+                    #         row['activity_id'], row['number'], row['start_time'], row['total_distance'],
+                    #         row['total_timer_time'], row['total_ascent'], row['total_descent'],
+                    #         row['avg_vertical_oscillation'], row['avg_stance_time'], row['avg_vertical_ratio'],
+                    #         row['avg_stance_time_balance'], row['avg_step_length'], row['intensity'],
+                    #         row['avg_running_cadence'], row['max_heart_rate'], row['avg_heart_rate'],
                     #     ]
                     # )
 
@@ -996,14 +1008,14 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                 for index, row in df.iterrows():
                     # Prepare SQL insert statement
                     sql = f"""INSERT INTO record(activity_id, latitude, longitude, lap, altitude, timestamp, heart_rate, cadence, fractional_cadence, enhanced_speed, distance)
-                    VALUES ({row.activity_id}, {row.latitude}, {row.longitude}, {row.lap}, {row.altitude}, '{row.timestamp}', {row.heart_rate}, {row.cadence}, {row.fractional_cadence}, {row.enhanced_speed}, {row.distance});"""
+                    VALUES ({row['activity_id']}, {row['latitude']}, {row['longitude']}, {row['lap']}, {row['altitude']}, '{row['timestamp']}', {row['heart_rate']}, {row['cadence']}, {row['fractional_cadence']}, {row['enhanced_speed']}, {row['distance']});"""
 
                     # Write to log file
                     log_file.write(sql + "\n")
 
                     # Execute in database
                     # cursor.execute("""insert into record(activity_id, latitude, longitude, lap, altitude, timestamp, heart_rate, cadence, fractional_cadence, enhanced_speed, distance)
-                    # values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", [row.activity_id, row.latitude, row.longitude, row.lap, row.altitude, row.timestamp, row.heart_rate, row.cadence, row.fractional_cadence, row.enhanced_speed, row.distance])
+                    # values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", [row['activity_id'], row['latitude'], row['longitude'], row['lap'], row['altitude'], row['timestamp'], row['heart_rate'], row['cadence'], row['fractional_cadence'], row['enhanced_speed'], row['distance']])
 
             elif tabl == "session":
                 df = df.astype(
@@ -1057,12 +1069,12 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     avg_speed, enhanced_max_speed, max_speed, avg_power, max_power, total_ascent, total_descent, first_lap_index,
                     num_laps, event, event_type, sport, sub_sport, avg_heart_rate, max_heart_rate, avg_cadence, max_cadence, 
                     total_training_effect, event_group, trigger, pool_length, pool_length_unit) 
-                    VALUES ({row.activity_id}, '{row.timestamp}', '{row.start_time}', {row.start_position_lat}, {row.start_position_long}, 
-                    {row.total_elapsed_time}, {row.total_timer_time}, {row.total_distance}, {row.total_strokes}, {row.nec_lat}, 
-                    {row.nec_long}, {row.swc_lat}, {row.swc_long}, {row.message_index}, {row.total_calories}, {row.total_fat_calories}, {row.enhanced_avg_speed},
-                    {row.avg_speed}, {row.enhanced_max_speed}, {row.max_speed}, {row.avg_power}, {row.max_power}, {row.total_ascent}, {row.total_descent}, {row.first_lap_index},
-                    {row.num_laps}, '{row.event}', '{row.event_type}', '{row.sport}', '{row.sub_sport}', {row.avg_heart_rate}, {row.max_heart_rate}, {row.avg_cadence}, {row.max_cadence}, 
-                    {row.total_training_effect}, {row.event_group}, '{row.trigger}', {row.pool_length}, '{row.pool_length_unit}');"""
+                    VALUES ({row['activity_id']}, '{row['timestamp']}', '{row['start_time']}', {row['start_position_lat']}, {row['start_position_long']}, 
+                    {row['total_elapsed_time']}, {row['total_timer_time']}, {row['total_distance']}, {row['total_strokes']}, {row['nec_lat']}, 
+                    {row['nec_long']}, {row['swc_lat']}, {row['swc_long']}, {row['message_index']}, {row['total_calories']}, {row['total_fat_calories']}, {row['enhanced_avg_speed']},
+                    {row['avg_speed']}, {row['enhanced_max_speed']}, {row['max_speed']}, {row['avg_power']}, {row['max_power']}, {row['total_ascent']}, {row['total_descent']}, {row['first_lap_index']},
+                    {row['num_laps']}, '{row['event']}', '{row['event_type']}', '{row['sport']}', '{row['sub_sport']}', {row['avg_heart_rate']}, {row['max_heart_rate']}, {row['avg_cadence']}, {row['max_cadence']}, 
+                    {row['total_training_effect']}, {row['event_group']}, '{row['trigger']}', {row['pool_length']}, '{row['pool_length_unit']}');"""
 
                     # Write to log file
                     log_file.write(sql + "\n")
@@ -1075,13 +1087,13 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                 #  num_laps, event, event_type, sport, sub_sport, avg_heart_rate, max_heart_rate, avg_cadence, max_cadence,
                 #  total_training_effect, event_group, trigger, pool_length, pool_length_unit) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                 #  %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, %s, %s)""",\
-                # [row.activity_id, row.timestamp, row.start_time, row.start_position_lat, row.start_position_long, \
-                #  row.total_elapsed_time, row.total_timer_time, row.total_distance, row.total_strokes, row.nec_lat, \
-                #  row.nec_long, row.swc_lat, row.swc_long, row.message_index, row.total_calories, row.total_fat_calories, \
-                #  row.enhanced_avg_speed, row.avg_speed, row.enhanced_max_speed, row.max_speed, row.avg_power, \
-                #  row.max_power, row.total_ascent, row.total_descent, row.first_lap_index, row.num_laps, row.event, \
-                #  row.event_type, row.sport, row.sub_sport, row.avg_heart_rate, row.max_heart_rate, row.avg_cadence, \
-                #  row.max_cadence, row.total_training_effect, row.event_group, row.trigger, row.pool_length, row.pool_length_unit])
+                # [row['activity_id'], row['timestamp'], row['start_time'], row['start_position_lat'], row['start_position_long'], \
+                #  row['total_elapsed_time'], row['total_timer_time'], row['total_distance'], row['total_strokes'], row['nec_lat'], \
+                #  row['nec_long'], row['swc_lat'], row['swc_long'], row['message_index'], row['total_calories'], row['total_fat_calories'], \
+                #  row['enhanced_avg_speed'], row['avg_speed'], row['enhanced_max_speed'], row['max_speed'], row['avg_power'], \
+                #  row['max_power'], row['total_ascent'], row['total_descent'], row['first_lap_index'], row['num_laps'], row['event'], \
+                #  row['event_type'], row['sport'], row['sub_sport'], row['avg_heart_rate'], row['max_heart_rate'], row['avg_cadence'], \
+                #  row['max_cadence'], row['total_training_effect'], row['event_group'], row['trigger'], row['pool_length'], row['pool_length_unit']])
 
         elif tabl == "length":
             df = df.astype(
@@ -1100,14 +1112,14 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
             for index, row in df.iterrows():
                 # Prepare SQL insert statement with proper escaping
                 sql = f"""INSERT INTO length(activity_id, timestamp, start_time, message_index, total_timer_time, total_strokes, avg_speed, swim_stroke, length_type) 
-                VALUES ({row.activity_id}, '{row.timestamp}', '{row.start_time}', {row.message_index}, {row.total_timer_time}, {row.total_strokes}, {row.avg_speed}, '{row.swim_stroke}', '{row.length_type}');"""
+                VALUES ({row['activity_id']}, '{row['timestamp']}', '{row['start_time']}', {row['message_index']}, {row['total_timer_time']}, {row['total_strokes']}, {row['avg_speed']}, '{row['swim_stroke']}', '{row['length_type']}');"""
 
                 # Write to log file
                 log_file.write(sql + "\n")
 
                 # Execute in database
                 # cursor.execute("""insert into length(activity_id, timestamp, start_time, message_index, total_timer_time, total_strokes, avg_speed, swim_stroke, length_type) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)""", \
-                # [row.activity_id, row.timestamp, row.start_time, row.message_index, row.total_timer_time, row.total_strokes, row.avg_speed, row.swim_stroke, row.length_type])
+                # [row['activity_id'], row['timestamp'], row['start_time'], row['message_index'], row['total_timer_time'], row['total_strokes'], row['avg_speed'], row['swim_stroke'], row['length_type']])
 
 
 def get_fit_lap_data(
@@ -1378,20 +1390,22 @@ if __name__ == "__main__":
                    get_dataframes(fname, 1)
                )
             # lap_df.to_csv('lap_data.csv', index=False)
-            # record_df.to_csv('record_data.csv', index=False)
-            # file_id_df.to_csv('file_id_data.csv', index=False)
+            record_df.to_csv('record_data.csv', index=False)
+            # file_id.to_csv('file_id_data.csv', index=False)
             # activity_df.to_csv('activity_data.csv', index=False)
             # session_df.to_csv('session_data.csv', index=False)
             # load avtivity and get activity id back 
             # then load otheres
-            write_sql_statement_to_file_watch(activity_df, "activity")
+            # write_sql_statement_to_file_watch(activity_df, "activity")
             # write_sql_statement_to_file_watch(file_id_df, "file_id")
-            write_sql_statement_to_file_watch(lap_df, "lap")
+            # write_sql_statement_to_file_watch(lap_df, "lap")
             write_sql_statement_to_file_watch(record_df, "record")
-            write_sql_statement_to_file_watch(session_df, "session")
-            write_sql_statement_to_file_watch(length_df, "length")
+            # write_sql_statement_to_file_watch(session_df, "session")
+            # write_sql_statement_to_file_watch(length_df, "length")
             # TODO:
  #            adjusted_distance and adjusted_duration need to defualt to the total_distance from total_distance of session df
  #            defualt activity name to location and activity type. from session start_position_lat and start_position_long. type from type column of session df
+#             check if lat and long are stored as floats in the database
+#             activity id needs to be returned from the first insert statement
 
 
