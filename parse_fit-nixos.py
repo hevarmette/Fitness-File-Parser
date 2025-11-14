@@ -536,13 +536,13 @@ def load_dataframe_to_postgres(df, tabl):
         conn.commit()
         cursor.close()
 
-def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
+def write_sql_statement_to_file_watch(df, tabl, log_file_path=None)
     """Takes a dataframe and it's source FIT file type,
     if dataframe is not empty then it is filled up with 0 for NaN values,
     dataframe is checked against the general schema per FIT file type - proper data types are assigned to the columns,
     through the iterations rows are sent to postgres DB with the use of INSERT INTO statement
 
-    Parameters:
+    Parameters
     -----------
     df : pandas.DataFrame
         The dataframe to be loaded into PostgreSQL
@@ -552,24 +552,24 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
         Path to log file where SQL insert statements will be written
     """
     # If log file path is not provided, create a default path in the same directory
-    if log_file_path is None:
+    if log_file_path is None
         log_file_path = os.path.join(os.path.dirname(__file__), f"{tabl}_inserts.sql")
 
     print(f"writing file to {log_file_path} . . .")
     
     # --- START OF CHANGES ---
 
-    def sql_format(value, quote=False):
+    def sql_format(value, quote=False)
         """
         Helper function to format Python values for a SQL statement.
         - Converts None, np.nan, and pd.NaT to NULL.
         - Quotes and escapes strings/datetimes.
         """
         # pd.isna() is a universal check for None, np.nan, and pd.NaT
-        if pd.isna(value):
+        if pd.isna(value)
             return "NULL"
         
-        if quote:
+        if quote
             # Escape single quotes for SQL
             safe_value = str(value).replace("'", "''")
             return f"'{safe_value}'"
@@ -581,14 +581,14 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
 
     # Open log file in write mode
-    with open(log_file_path, "a") as log_file:
+    with open(log_file_path, "a") as log_file
         log_file.write("\n\n")
-        if not df.empty:
+        if not df.empty
             # df = df.fillna(0).infer_objects(copy=False)
 
-            if tabl == "activity":
+            if tabl == "activity
                 # must explicitly remove the timezone from local timestamp to send to db (it has no timezone there)
-                if df["local_timestamp"].dtype.name.startswith("datetime64[ns,"):
+                if df["local_timestamp"].dtype.name.startswith("datetime64[ns,")
                     df["local_timestamp"] = df["local_timestamp"].dt.tz_localize(None)
                 # Define your desired dtype mappings
                 desired_dtypes = {
@@ -620,8 +620,8 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 # Apply the conversion
                 df = df.astype(existing_dtypes)
 
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
+                for col in desired_dtypes.keys()
+                    if col not in df.columns
                         df[col] = None
                 
                 # --- CHANGE ---
@@ -629,7 +629,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 # as the sql_format function will handle escaping for all
                 # string fields, not just 'description'.
                 #
-                # if "description" in df.columns:
+                # if "description" in df.columns
                 #     ... (removed old logic) ...
                 
                 # --- CHANGE ---
@@ -638,7 +638,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 # but it makes the row data cleaner before formatting.
                 # df = df.where(pd.notna(df), None)
 
-                for index, row in df.iterrows():
+                for index, row in df.iterrows()
                     
                     # --- CHANGE ---
                     # Use the new sql_format() helper for every value
@@ -655,13 +655,42 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                         "activity_id": "int64",
                         "timestamp": "datetime64[ns, UTC]",
                         "start_time": "datetime64[ns, UTC]",
+                        "start_position_lat": "float",
+                        "start_position_long": "float",
                         "total_elapsed_time": "float64",
                         "total_timer_time": "float64",
                         "total_distance": "float64",
+                        "total_strokes": "float64",
+                        "nec_lat": "float",
+                        "nec_long": "float",
+                        "swc_lat": "float",
+                        "swc_long": "float",
+                        "message_index": "float",
+                        "total_calories": "float",
+                        "total_fat_calories": "float64",
+                        "enhanced_avg_speed": "float64",
+                        "avg_speed": "float64",
+                        "enhanced_max_speed": "float64",
+                        "max_speed": "float64",
+                        "avg_power": "float64",
+                        "max_power": "float64",
+                        "total_ascent": "float",
+                        "total_descent": "float",
+                        "first_lap_index": "float",
+                        "num_laps": "float",
                         "event": "object",
                         "event_type": "object",
                         "sport": "object",
-                        "sub_sport": "object"
+                        "sub_sport": "object",
+                        "avg_heart_rate": "float",
+                        "max_heart_rate": "float",
+                        "avg_cadence": "float",
+                        "max_cadence": "float",
+                        "total_training_effect": "float64",
+                        "event_group": "float64",
+                        "trigger": "object",
+                        "pool_length": "float",
+                        "pool_length_unit": "object",
                     }
 
                     existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
@@ -674,9 +703,93 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
                     for index, row in df.iterrows():
                         # *** REVIEW/EDIT THIS INSERT STATEMENT ***
-                        sql = f"""INSERT INTO session(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, event, event_type, sport, sub_sport)
-                        VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['start_time'], quote=True)}, {sql_format(row['total_elapsed_time'])}, {sql_format(row['total_timer_time'])}, {sql_format(row['total_distance'])}, {sql_format(row['event'], quote=True)}, {sql_format(row['event_type'], quote=True)}, {sql_format(row['sport'], quote=True)}, {sql_format(row['sub_sport'], quote=True)})
-                        ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                        
+                        sql = f"""
+                        INSERT INTO public.session(
+                            activity_id,
+                            timestamp,
+                            start_time,
+                            start_position_lat,
+                            start_position_long,
+                            total_elapsed_time,
+                            total_timer_time,
+                            total_distance,
+                            total_strokes,
+                            nec_lat,
+                            nec_long,
+                            swc_lat,
+                            swc_long,
+                            message_index,
+                            total_calories,
+                            total_fat_calories,
+                            enhanced_avg_speed,
+                            avg_speed,
+                            enhanced_max_speed,
+                            max_speed,
+                            avg_power,
+                            max_power,
+                            total_ascent,
+                            total_descent,
+                            first_lap_index,
+                            num_laps,
+                            event,
+                            event_type,
+                            sport,
+                            sub_sport,
+                            avg_heart_rate,
+                            max_heart_rate,
+                            avg_cadence,
+                            max_cadence,
+                            total_training_effect,
+                            event_group,
+                            trigger,
+                            pool_length,
+                            pool_length_unit
+                        )
+                        VALUES (
+                            {sql_format(row['activity_id'])},
+                            {sql_format(row['timestamp'], quote=True)},
+                            {sql_format(row['start_time'], quote=True)},
+                            {sql_format(row['start_position_lat'])},
+                            {sql_format(row['start_position_long'])},
+                            {sql_format(row['total_elapsed_time'])},
+                            {sql_format(row['total_timer_time'])},
+                            {sql_format(row['total_distance'])},
+                            {sql_format(row['total_strokes'])},
+                            {sql_format(row['nec_lat'])},
+                            {sql_format(row['nec_long'])},
+                            {sql_format(row['swc_lat'])},
+                            {sql_format(row['swc_long'])},
+                            {sql_format(row['message_index'])},
+                            {sql_format(row['total_calories'])},
+                            {sql_format(row['total_fat_calories'])},
+                            {sql_format(row['enhanced_avg_speed'])},
+                            {sql_format(row['avg_speed'])},
+                            {sql_format(row['enhanced_max_speed'])},
+                            {sql_format(row['max_speed'])},
+                            {sql_format(row['avg_power'])},
+                            {sql_format(row['max_power'])},
+                            {sql_format(row['total_ascent'])},
+                            {sql_format(row['total_descent'])},
+                            {sql_format(row['first_lap_index'])},
+                            {sql_format(row['num_laps'])},
+                            {sql_format(row['event'], quote=True)},
+                            {sql_format(row['event_type'], quote=True)},
+                            {sql_format(row['sport'], quote=True)},
+                            {sql_format(row['sub_sport'], quote=True)},
+                            {sql_format(row['avg_heart_rate'])},
+                            {sql_format(row['max_heart_rate'])},
+                            {sql_format(row['avg_cadence'])},
+                            {sql_format(row['max_cadence'])},
+                            {sql_format(row['total_training_effect'])},
+                            {sql_format(row['event_group'])},
+                            {sql_format(row['trigger'], quote=True)},
+                            {sql_format(row['pool_length'])},
+                            {sql_format(row['pool_length_unit'], quote=True)}
+                        )
+                        ON CONFLICT (activity_id) DO NOTHING;
+                        """
+  # <-- Ensure conflict keys are correct
                         log_file.write(sql + "\n")
 
             # --- Lap Table ---
@@ -684,14 +797,21 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 # *** REVIEW/EDIT THIS SCHEMA ***
                 desired_dtypes = {
                     "activity_id": "int64",
-                    "timestamp": "datetime64[ns, UTC]",
+                    "number": "int64",
                     "start_time": "datetime64[ns, UTC]",
-                    "total_elapsed_time": "float64",
-                    "total_timer_time": "float64",
                     "total_distance": "float64",
-                    "avg_speed": "float64",
-                    "max_speed": "float64",
-                    "total_calories": "int64"
+                    "total_timer_time": "float64",
+                    "total_ascent": "int64",
+                    "total_descent": "int64",
+                    "avg_vertical_oscillation": "float64",
+                    "avg_stance_time": "float64",
+                    "avg_vertical_ratio": "float64",
+                    "avg_stance_time_balance": "float64",
+                    "avg_step_length": "float64",
+                    "intensity": "object",
+                    "avg_running_cadence": "int64",
+                    "max_heart_rate": "int64",
+                    "avg_heart_rate": "int64",
                 }
 
                 existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
@@ -704,9 +824,46 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
                 for index, row in df.iterrows():
                     # *** REVIEW/EDIT THIS INSERT STATEMENT ***
-                    sql = f"""INSERT INTO lap(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, avg_speed, max_speed, total_calories)
-                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['start_time'], quote=True)}, {sql_format(row['total_elapsed_time'])}, {sql_format(row['total_timer_time'])}, {sql_format(row['total_distance'])}, {sql_format(row['avg_speed'])}, {sql_format(row['max_speed'])}, {sql_format(row['total_calories'])})
-                    ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                    sql = f"""
+                    INSERT INTO lap(
+                        activity_id,
+                        number,
+                        start_time,
+                        total_distance,
+                        total_timer_time,
+                        total_ascent,
+                        total_descent,
+                        avg_vertical_oscillation,
+                        avg_stance_time,
+                        avg_vertical_ratio,
+                        avg_stance_time_balance,
+                        avg_step_length,
+                        intensity,
+                        avg_running_cadence,
+                        max_heart_rate,
+                        avg_heart_rate
+                    )
+                    VALUES (
+                        {sql_format(row['activity_id'])},
+                        {sql_format(row['number'])},
+                        {sql_format(row['start_time'], quote=True)},
+                        {sql_format(row['total_distance'])},
+                        {sql_format(row['total_timer_time'])},
+                        {sql_format(row['total_ascent'])},
+                        {sql_format(row['total_descent'])},
+                        {sql_format(row['avg_vertical_oscillation'])},
+                        {sql_format(row['avg_stance_time'])},
+                        {sql_format(row['avg_vertical_ratio'])},
+                        {sql_format(row['avg_stance_time_balance'])},
+                        {sql_format(row['avg_step_length'])},
+                        {sql_format(row['intensity'], quote=True)},
+                        {sql_format(row['avg_running_cadence'])},
+                        {sql_format(row['max_heart_rate'])},
+                        {sql_format(row['avg_heart_rate'])}
+                    )
+                    ON CONFLICT (activity_id) DO NOTHING;
+                    """
+  # <-- Ensure conflict keys are correct
                     log_file.write(sql + "\n")
 
             # --- Record Table ---
@@ -714,15 +871,16 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                 # *** REVIEW/EDIT THIS SCHEMA ***
                 desired_dtypes = {
                     "activity_id": "int64",
-                    "timestamp": "datetime64[ns, UTC]",
                     "latitude": "float64",
                     "longitude": "float64",
-                    "distance": "float64",
+                    "lap": "int64",
                     "altitude": "float64",
-                    "speed": "float64",
+                    "timestamp": "datetime64[ns, UTC]",
                     "heart_rate": "int64",
                     "cadence": "int64",
-                    "power": "int64"
+                    "fractional_cadence": "float64",
+                    "enhanced_speed": "int64",
+                    "distance": "float64"
                 }
 
                 existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
@@ -735,13 +893,40 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
                 for index, row in df.iterrows():
                     # *** REVIEW/EDIT THIS INSERT STATEMENT ***
-                    sql = f"""INSERT INTO record(activity_id, timestamp, latitude, longitude, distance, altitude, speed, heart_rate, cadence, power)
-                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['latitude'])}, {sql_format(row['longitude'])}, {sql_format(row['distance'])}, {sql_format(row['altitude'])}, {sql_format(row['speed'])}, {sql_format(row['heart_rate'])}, {sql_format(row['cadence'])}, {sql_format(row['power'])})
-                    ON CONFLICT (activity_id, timestamp) DO NOTHING;"""  # <-- Ensure conflict keys are correct
+                    sql = f"""
+                    INSERT INTO record(
+                        activity_id,
+                        latitude,
+                        longitude,
+                        lap,
+                        altitude,
+                        timestamp,
+                        heart_rate,
+                        cadence,
+                        fractional_cadence,
+                        enhanced_speed,
+                        distance
+                    )
+                    VALUES (
+                        {sql_format(row['activity_id'])},
+                        {sql_format(row['latitude'])},
+                        {sql_format(row['longitude'])},
+                        {sql_format(row['lap'])},
+                        {sql_format(row['altitude'])},
+                        {sql_format(row['timestamp'], quote=True)},
+                        {sql_format(row['heart_rate'])},
+                        {sql_format(row['cadence'])},
+                        {sql_format(row['fractional_cadence'])},
+                        {sql_format(row['enhanced_speed'])},
+                        {sql_format(row['distance'])}
+                    )
+                    ON CONFLICT (activity_id, timestamp) DO NOTHING;
+                    """
+  # <-- Ensure conflict keys are correct
                     log_file.write(sql + "\n")
 
             # --- File ID Table ---
-            elif tabl == "file_id":
+            elif tabl == "file_id
                 # *** REVIEW/EDIT THIS SCHEMA ***
                 desired_dtypes = {
                     "activity_id": "int64",
@@ -755,24 +940,24 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
                 existing_dtypes = { col: dtype for col, dtype in desired_dtypes.items() if col in df.columns }
                 
-                if existing_dtypes:
+                if existing_dtypes
                     # Handle potential conversion errors if 'product' is not purely numeric
-                    for col, dtype in existing_dtypes.items():
-                        try:
-                            if dtype == "int64":
+                    for col, dtype in existing_dtypes.items()
+                        try
+                            if dtype == "int64
                                 # Convert to float first to handle NaNs, then to nullable Int64
                                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('float').astype('Int64')
-                            else:
+                            else
                                 df = df.astype({col: dtype})
-                        except Exception as e:
+                        except Exception as e
                             print(f"Error casting column {col} to {dtype}: {e}. Forcing to object.")
                             df = df.astype({col: 'object'}) # Fallback
                 
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
+                for col in desired_dtypes.keys()
+                    if col not in df.columns
                         df[col] = None
 
-                for index, row in df.iterrows():
+                for index, row in df.iterrows()
                     # *** THIS IS THE FIX ***
                     # Changed all `row['column']` to `row['column']`
                     sql = f"""INSERT INTO file_id(activity_id, type, manufacturer, product, serial_number, time_created, number)
@@ -1390,22 +1575,22 @@ if __name__ == "__main__":
                    get_dataframes(fname, 1)
                )
             # lap_df.to_csv('lap_data.csv', index=False)
-            record_df.to_csv('record_data.csv', index=False)
+            # record_df.to_csv('record_data.csv', index=False)
             # file_id.to_csv('file_id_data.csv', index=False)
             # activity_df.to_csv('activity_data.csv', index=False)
             # session_df.to_csv('session_data.csv', index=False)
             # load avtivity and get activity id back 
             # then load otheres
-            # write_sql_statement_to_file_watch(activity_df, "activity")
-            # write_sql_statement_to_file_watch(file_id_df, "file_id")
-            # write_sql_statement_to_file_watch(lap_df, "lap")
-            write_sql_statement_to_file_watch(record_df, "record")
-            # write_sql_statement_to_file_watch(session_df, "session")
+            # write_sql_statement_to_file_watch(activity_df, "activity") see notes
+            # write_sql_statement_to_file_watch(file_id_df, "file_id") good
+            # write_sql_statement_to_file_watch(lap_df, "lap") GOOD
+            # write_sql_statement_to_file_watch(record_df, "record") see notes
+            # write_sql_statement_to_file_watch(session_df, "session") # see notes
             # write_sql_statement_to_file_watch(length_df, "length")
             # TODO:
  #            adjusted_distance and adjusted_duration need to defualt to the total_distance from total_distance of session df
  #            defualt activity name to location and activity type. from session start_position_lat and start_position_long. type from type column of session df
-#             check if lat and long are stored as floats in the database
 #             activity id needs to be returned from the first insert statement
-
+#             record data lap column looks like total laps + 1 for new watch? gonna have to determine laps based on distances compared to lap def
+#             converts session lat and longs to floats from integers
 

@@ -3,3 +3,97 @@
 INSERT INTO session(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, event, event_type, sport, sub_sport)
                         VALUES (1, '2025-08-03 18:45:09+00:00', '2025-08-03 18:45:09+00:00', 3965.428, 3240.242, 9152.19, 'session', 'stop', 'running', 'generic')
                         ON CONFLICT (activity_id, timestamp) DO NOTHING;
+
+
+INSERT INTO session(activity_id, timestamp, start_time, total_elapsed_time, total_timer_time, total_distance, event, event_type, sport, sub_sport)
+                        VALUES (1, '2025-08-03 18:45:09+00:00', '2025-08-03 18:45:09+00:00', 3965.428, 3240.242, 9152.19, 'session', 'stop', 'running', 'generic')
+                        ON CONFLICT (activity_id, timestamp) DO NOTHING;
+
+
+
+
+
+                        INSERT INTO public.session(
+                            activity_id,
+                            timestamp,
+                            start_time,
+                            start_position_lat,
+                            start_position_long,
+                            total_elapsed_time,
+                            total_timer_time,
+                            total_distance,
+                            total_strokes,
+                            nec_lat,
+                            nec_long,
+                            swc_lat,
+                            swc_long,
+                            message_index,
+                            total_calories,
+                            total_fat_calories,
+                            enhanced_avg_speed,
+                            avg_speed,
+                            enhanced_max_speed,
+                            max_speed,
+                            avg_power,
+                            max_power,
+                            total_ascent,
+                            total_descent,
+                            first_lap_index,
+                            num_laps,
+                            event,
+                            event_type,
+                            sport,
+                            sub_sport,
+                            avg_heart_rate,
+                            max_heart_rate,
+                            avg_cadence,
+                            max_cadence,
+                            total_training_effect,
+                            event_group,
+                            trigger,
+                            pool_length,
+                            pool_length_unit
+                        )
+                        VALUES (
+                            1,
+                            '2025-08-03 18:45:09+00:00',
+                            '2025-08-03 18:45:09+00:00',
+                            399394356.0,
+                            -1035121464.0,
+                            3965.428,
+                            3240.242,
+                            9152.19,
+                            NULL,
+                            399704723.0,
+                            -1034884445.0,
+                            399383123.0,
+                            -1035223324.0,
+                            0.0,
+                            656.0,
+                            NULL,
+                            2.825,
+                            NULL,
+                            3.555,
+                            NULL,
+                            NULL,
+                            NULL,
+                            89.0,
+                            80.0,
+                            0.0,
+                            6.0,
+                            'session',
+                            'stop',
+                            'running',
+                            'generic',
+                            118.0,
+                            138.0,
+                            79.0,
+                            97.0,
+                            2.4,
+                            NULL,
+                            'activity_end',
+                            NULL,
+                            NULL
+                        )
+                        ON CONFLICT (activity_id, timestamp) DO NOTHING;
+                        
