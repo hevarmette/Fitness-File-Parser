@@ -607,4 +607,4 @@ if __name__ == "__main__":
         # TODO:
         # activity id needs to be returned from the first insert statement
         # record data lap column looks like total laps + 1 for new watch? gonna have to determine laps based on distances compared to lap def
-        # converts session lat and longs to floats from integers
+        # converts session lat and longs to floats from integers in the helpers.py file
