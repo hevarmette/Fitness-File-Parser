@@ -56,10 +56,10 @@ activity = [
 ]
 
 session = [
-    "timestamp",
-    "start_time",
     "start_position_lat",
     "start_position_long",
+    "timestamp",
+    "start_time",
     "total_elapsed_time",
     "total_timer_time",
     "total_distance",
@@ -209,10 +209,30 @@ def get_fit_point_data(frame):
     data["latitude"] = frame.get_value("position_lat") / ((2**32) / 360)
     data["longitude"] = frame.get_value("position_long") / ((2**32) / 360)
 
+    # NOTE: This requires lat and long to be the first items in the list. I also skip the lap column to manually define it.
     for field in record[3:]:
         if frame.has_field(field):
             data[field] = frame.get_value(field)
 
+    return data
+
+
+def get_fit_session_data(frame):
+    data = {}
+
+    if frame.has_field("start_position_lat") and frame.has_field("start_position_long"):
+        # Converting lat and long from ints to floats. This is in the session list at the top, which I have removed start lat and long from
+        data["start_position_lat"] = frame.get_value("start_position_lat") / (
+            (2**32) / 360
+        )
+        data["start_position_long"] = frame.get_value("start_position_long") / (
+            (2**32) / 360
+        )
+
+    # NOTE: Skipping the fields hardcoded above
+    for field in session[2:]:
+        if frame.has_field(field):
+            data[field] = frame.get_value(field)
     return data
 
 
@@ -276,7 +296,7 @@ def get_dataframes(fname: str, activity_id: int):
                 activity_data.append(get_fit_other_data(activity, frame))
 
             elif frame.name == "session":
-                session_data.append(get_fit_other_data(session, frame))
+                session_data.append(get_fit_session_data(frame))
 
             elif frame.name == "length":
                 length_data.append(get_fit_other_data(length, frame))

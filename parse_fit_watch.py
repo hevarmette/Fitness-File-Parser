@@ -77,7 +77,8 @@ def build_default_activity_name(session_df, activity_df):
     lon = session_df.get("start_position_long", [None])[0]
 
     if lat is None or lon is None:
-        return f"Unknown Location {sport_name}"
+        print("Unknown Location")
+        return f"{sport_name}"
 
     city, county = reverse_geocode(lat, lon)
 
@@ -86,7 +87,8 @@ def build_default_activity_name(session_df, activity_df):
     elif county:
         location = county
     else:
-        location = "Unknown Location"
+        print("Unknown Location")
+        return f"{sport_name}"
 
     return f"{location} {sport_name}"
 
@@ -583,13 +585,6 @@ if __name__ == "__main__":
             get_dataframes(fname, 1)
         )
 
-        # Converting lat and long from ints to floats
-        session_df["start_position_lat"] = session_df["start_position_lat"] / (
-            (2**32) / 360
-        )
-        session_df["start_position_long"] = session_df["start_position_long"] / (
-            (2**32) / 360
-        )
         # the following only works with one activity per activity_df and therefore one activity in session_df
         activity_df.loc[0, "adjusted_distance"] = session_df["total_distance"].sum()
         activity_df.loc[0, "adjusted_duration"] = session_df["total_timer_time"].sum()
@@ -597,7 +592,7 @@ if __name__ == "__main__":
             session_df, activity_df
         )
 
-        write_sql_statement_to_file_watch(activity_df, "activity")
+        # write_sql_statement_to_file_watch(activity_df, "activity")
         # write_sql_statement_to_file_watch(file_id_df, "file_id")
         # write_sql_statement_to_file_watch(lap_df, "lap")
         # write_sql_statement_to_file_watch(record_df, "record")
@@ -607,4 +602,3 @@ if __name__ == "__main__":
         # TODO:
         # activity id needs to be returned from the first insert statement
         # record data lap column looks like total laps + 1 for new watch? gonna have to determine laps based on distances compared to lap def
-        # converts session lat and longs to floats from integers in the helpers.py file
