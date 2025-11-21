@@ -58,16 +58,16 @@ activity = [
 session = [
     "start_position_lat",
     "start_position_long",
+    "nec_long",
+    "swc_lat",
+    "swc_long",
+    "nec_lat",
     "timestamp",
     "start_time",
     "total_elapsed_time",
     "total_timer_time",
     "total_distance",
     "total_strokes",
-    "nec_lat",
-    "nec_long",
-    "swc_lat",
-    "swc_long",
     "message_index",
     "total_calories",
     "total_fat_calories",
@@ -220,17 +220,14 @@ def get_fit_point_data(frame):
 def get_fit_session_data(frame):
     data = {}
 
-    if frame.has_field("start_position_lat") and frame.has_field("start_position_long"):
-        # Converting lat and long from ints to floats. This is in the session list at the top, which I have removed start lat and long from
-        data["start_position_lat"] = frame.get_value("start_position_lat") / (
-            (2**32) / 360
-        )
-        data["start_position_long"] = frame.get_value("start_position_long") / (
-            (2**32) / 360
-        )
+    # NOTE: converting from semicircles/degrees to true lat and longs. just because it's easier to play around with the data without converting everytime.
+    # This is meant to store data for one person, so precision and computational savings don't matter much to me as ease of use
+    DIVISOR = (2**32) / 360
+    for field in session[:5]:
+        if frame.has_field(field):
+            data[field] = frame.get_value(field) / DIVISOR
 
-    # NOTE: Skipping the fields hardcoded above
-    for field in session[2:]:
+    for field in session[6:]:
         if frame.has_field(field):
             data[field] = frame.get_value(field)
     return data

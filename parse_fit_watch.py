@@ -629,5 +629,5 @@ if __name__ == "__main__":
         # TODO:
         # activity id needs to be returned from the first insert statement
         # record data lap column looks like total laps + 1 for new watch? gonna have to determine laps based on distances compared to lap def
-        # Need to update session definition so lat and long are stored as floats
+        # Need to update session table definition so lat and long are stored as floats and ensure the defined datatypes above match that definition
         # I'm not sure if this will be a problem, but df values are forced as floats to handle nans when in database they are Ints
