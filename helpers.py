@@ -246,7 +246,7 @@ def get_fit_other_data(col, frame):
 # -------------------------
 
 
-def get_dataframes(fname: str, activity_id: int):
+def get_dataframes(fname: str, activity_id: int = None):
     """Reads a FIT file and produces DataFrames for:
     lap, record, file_id, activity, session, length
     """
@@ -340,13 +340,8 @@ def get_dataframes(fname: str, activity_id: int):
         if row["length_type"] != "active":
             length_df.loc[idx:, "message_index"] -= 1
 
-    for df in (lap_df, record_df, file_id_df, activity_df, session_df, length_df):
-        df["activity_id"] = activity_id
-
-    # Activity may be empty
-    if activity_df.empty:
-        activity_df = activity_df.append(
-            {"activity_id": activity_id}, ignore_index=True
-        )
+    if activity_id:
+        for df in (lap_df, record_df, file_id_df, activity_df, session_df, length_df):
+            df["activity_id"] = activity_id
 
     return lap_df, record_df, file_id_df, activity_df, session_df, length_df
