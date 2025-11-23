@@ -107,6 +107,8 @@ length = [
     "length_type",
 ]
 
+
+DIVISOR = (2**32) / 360
 # -------------------------
 # UTILITY FUNCTIONS
 # -------------------------
@@ -180,7 +182,7 @@ def get_user_activity_details(file):
 
 def extract_date_from_filename_connect(filename):
     date_str = filename.split("T")[0]
-    return datetime.strptime(date_str, "%Y-%m-%d")
+    return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
 def extract_date_from_filename_watch(filename):
@@ -206,8 +208,16 @@ def get_fit_point_data(frame):
         return None
 
     data = {}
-    data["latitude"] = frame.get_value("position_lat") / ((2**32) / 360)
-    data["longitude"] = frame.get_value("position_long") / ((2**32) / 360)
+    lat = frame.get_value("position_lat")
+    long = frame.get_value("position_long")
+    if lat != None:
+        data["latitude"] = lat / DIVISOR
+    else:
+        data["latitude"] = lat
+    if long != None:
+        data["longitude"] = long / DIVISOR
+    else:
+        data["longitude"] = long
 
     # NOTE: This requires lat and long to be the first items in the list. I also skip the lap column to manually define it.
     for field in record[3:]:
@@ -222,7 +232,6 @@ def get_fit_session_data(frame):
 
     # NOTE: converting from semicircles/degrees to true lat and longs. just because it's easier to play around with the data without converting everytime.
     # This is meant to store data for one person, so precision and computational savings don't matter much to me as ease of use
-    DIVISOR = (2**32) / 360
     for field in session[:5]:
         if frame.has_field(field):
             data[field] = frame.get_value(field) / DIVISOR
@@ -246,7 +255,7 @@ def get_fit_other_data(col, frame):
 # -------------------------
 
 
-def get_dataframes(fname: str, activity_id: int = None):
+def get_dataframes(fname: str, activity_id=None):
     """Reads a FIT file and produces DataFrames for:
     lap, record, file_id, activity, session, length
     """
@@ -293,8 +302,8 @@ def get_dataframes(fname: str, activity_id: int = None):
                 activity_data.append(get_fit_other_data(activity, frame))
 
             elif frame.name == "session":
-                session_data.append(get_fit_session_data(frame))
-
+                # session_data.append(get_fit_session_data(frame))
+                session_data.append(get_fit_other_data(session, frame))
             elif frame.name == "length":
                 length_data.append(get_fit_other_data(length, frame))
 

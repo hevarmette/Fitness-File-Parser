@@ -16,11 +16,15 @@ from helpers import (
     get_dataframes,
 )
 
+import psycopg2
+from psycopg2.extras import execute_values
+
+pd.set_option("display.max_columns", None)
+
 # ------------------------------------
 # DB LOADING LOGIC (OLD)
 # ------------------------------------
 
-import psycopg2
 
 config = toml.load("secrets.toml")
 db_config = config["postgresql"]
@@ -30,13 +34,36 @@ conn = psycopg2.connect(**db_config)
 def load_dataframe_to_postgres(df, tabl):
     """Old DB insert loader: writes row-by-row into Postgres. This wasn't working in the old version parse fit nixos, and I don't plan on copying it over here, but just in case, I will leave this where it was."""
     if df.empty:
-        return
+        print(f"[SKIP] {tabl}: dataframe is empty.")
+        return True
 
-    df = df.fillna(0).infer_objects(copy=False)
+    # Convert all column names into SQL-compatible string
+    columns = list(df.columns)
+    col_names = ", ".join(columns)
+
+    # Convert DataFrame to a list of row tuples
+    rows = df.values.tolist()
+
     cursor = conn.cursor()
 
-    conn.commit()
-    cursor.close()
+    try:
+        # Bulk insert template
+        insert_sql = f"INSERT INTO public.{tabl} ({col_names}) VALUES %s"
+
+        execute_values(cursor, insert_sql, rows)
+
+        conn.commit()
+        cursor.close()
+
+        print(f"[OK] Inserted {len(rows)} rows into {tabl}")
+        return True
+
+    except Exception as e:
+        conn.rollback()
+        cursor.close()
+        print(f"[ERROR] Inserting into {tabl}: {e}")
+        print(df.head(20))
+        return False
 
 
 # ------------------------------------
@@ -351,16 +378,26 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                 # [row['activity_id'], row['timestamp'], row['start_time'], row['message_index'], row['total_timer_time'], row['total_strokes'], row['avg_speed'], row['swim_stroke'], row['length_type']])
 
 
+def insert_or_fallback(df, table):
+    if not df.empty:
+        ok = load_dataframe_to_postgres(df, table)
+        if ok is None:
+            print(f"Falling back to SQL file for {table}...")
+            write_sql_statement_to_file_watch(df, table)
+    else:
+        print(f"Skipped {table} because it was empty")
+
+
 # ------------------------------------
 # GARMIN CONNECT MAIN LOGIC
 # ------------------------------------
 
 if __name__ == "__main__":
 
-    dir = "example activities/Activity/"
+    dir = "~/Documents/Updated Garmin/"
     file_extension = ".fit"
 
-    after_date = datetime(2025, 8, 2).date()
+    after_date = datetime(2025, 10, 8).date()
     today = datetime.now().date()
 
     files = [
@@ -374,32 +411,23 @@ if __name__ == "__main__":
     errors = []
 
     for file in filtered_files:
-        try:
-            fname = dir + file
-            json_file = fname.replace(file_extension, "_summary.json")
+        fname = dir + file
+        json_file = fname.replace(file_extension, "_summary.json")
 
-            activity_id = get_user_activity_details(fname)
+        activity_id = get_user_activity_details(fname)
 
-            lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
-                get_dataframes(fname, activity_id)
-            )
+        lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
+            get_dataframes(fname, activity_id)
+        )
 
-            json_info_df = pd.DataFrame(get_json_info(json_file), index=[0])
-            activity_df_fixed = pd.concat([activity_df, json_info_df], axis=1)
+        json_info_df = pd.DataFrame(get_json_info(json_file), index=[0])
+        activity_df_fixed = pd.concat([activity_df, json_info_df], axis=1)
 
-            # Old SQL style
-            # load_dataframe_to_postgres(activity_df_fixed, "activity")
-            # load_dataframe_to_postgres(file_id_df, "file_id")
-            # load_dataframe_to_postgres(lap_df, "lap")
-            # load_dataframe_to_postgres(record_df, "record")
-            # load_dataframe_to_postgres(session_df, "session")
-            # load_dataframe_to_postgres(length_df, "length")
-
-            # write to files here
-            write_sql_statement_to_file(activity_df_fixed, "activity")
-
-        except Exception as e:
-            print("ERROR:", e)
-            errors.append(file)
-
-    print("Finished. Errors:", errors)
+        print(f"Loading activity {activity_id}")
+        insert_or_fallback(activity_df_fixed, "activity")
+        insert_or_fallback(file_id_df, "file_id")
+        insert_or_fallback(lap_df, "lap")
+        insert_or_fallback(record_df, "record")
+        insert_or_fallback(session_df, "session")
+        insert_or_fallback(length_df, "length")
+    print("Done")

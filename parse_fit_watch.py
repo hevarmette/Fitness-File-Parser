@@ -246,3 +246,4 @@ if __name__ == "__main__":
 
         # TODO:
         # record data lap column looks like total laps + 1 for new watch? gonna have to determine laps based on distances compared to lap def
+        # data fix - activity table: replace 0 or '0' for description, total_timer_time, local timestamp, num_sessions, type, event, event_type, and event_group with null. might have to reparse all the files to fix workout_feel and effort because all the connect files were filled with zero, which is very weak description.
