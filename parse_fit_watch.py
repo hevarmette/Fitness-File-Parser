@@ -11,18 +11,20 @@ import pandas as pd
 
 from helpers import (
     extract_date_from_filename_watch,
+    extract_date_from_filename_connect,
     get_dataframes,
 )
 from watch_files_to_sql import write_sql_statement_to_file_watch
 import requests
 import time
-import toml
-import psycopg2
-from psycopg2.extras import execute_values
 
-config = toml.load("secrets.toml")
-db_config = config["postgresql"]
-conn = psycopg2.connect(**db_config)
+# import toml
+# import psycopg2
+# from psycopg2.extras import execute_values
+
+# config = toml.load("secrets.toml")
+# db_config = config["postgresql"]
+# conn = psycopg2.connect(**db_config)
 
 
 def reverse_geocode(lat, lon):
@@ -162,7 +164,7 @@ def insert_or_fallback(df, table):
 
 if __name__ == "__main__":
 
-    dir = "example activities/Activity/"
+    dir = "example activities/multi sport/"
     file_extension = ".fit"
 
     after_date = datetime(2025, 8, 1).date()
@@ -173,7 +175,7 @@ if __name__ == "__main__":
     ]
 
     filtered_files = [
-        f for f in files if after_date < extract_date_from_filename_watch(f) <= today
+        f for f in files if after_date < extract_date_from_filename_connect(f) <= today
     ]
 
     for file in filtered_files:
@@ -196,10 +198,10 @@ if __name__ == "__main__":
         # ---------------------------
         print("Inserting activity...")
 
-        new_activity_id = db_insert_dataframe(
-            activity_df, "activity", conn, return_id=True
-        )
-
+        # new_activity_id = db_insert_dataframe(
+        #     activity_df, "activity", conn, return_id=True
+        # )
+        new_activity_id = None
         if new_activity_id is None:
             # ------------------------------------------
             # DB FAILED → FALLBACK FOR *ALL* TABLES
@@ -225,25 +227,26 @@ if __name__ == "__main__":
             write_sql_statement_to_file_watch(length_df, "length")
 
             print("Skipped DB inserts for this file due to activity failure.\n")
-            continue
 
-        # ---------------------------
-        # Apply activity_id
-        # ---------------------------
-        apply_activity_id_to_dfs(
-            new_activity_id,
-            [file_id_df, lap_df, record_df, session_df, length_df],
-        )
+        else:
+            # ---------------------------
+            # Apply activity_id
+            # ---------------------------
+            apply_activity_id_to_dfs(
+                new_activity_id,
+                [file_id_df, lap_df, record_df, session_df, length_df],
+            )
 
-        # ---------------------------
-        # Insert OTHER tables
-        # ---------------------------
-        insert_or_fallback(file_id_df, "file_id")
-        insert_or_fallback(lap_df, "lap")
-        insert_or_fallback(record_df, "record")
-        insert_or_fallback(session_df, "session")
-        insert_or_fallback(length_df, "length")
+            # ---------------------------
+            # Insert OTHER tables
+            # ---------------------------
+            insert_or_fallback(file_id_df, "file_id")
+            insert_or_fallback(lap_df, "lap")
+            insert_or_fallback(record_df, "record")
+            insert_or_fallback(session_df, "session")
+            insert_or_fallback(length_df, "length")
 
         # TODO:
-        # record data lap column looks like total laps + 1 for new watch? gonna have to determine laps based on distances compared to lap def
+        # record data lap column looks like total laps + 1 for new watch for all records? gonna have to determine laps based on distances compared to lap def
         # data fix - activity table: replace 0 or '0' for description, total_timer_time, local timestamp, num_sessions, type, event, event_type, and event_group with null. might have to reparse all the files to fix workout_feel and effort because all the connect files were filled with zero, which is very weak description.
+        # NOTE: session parser is using int definitions right now

@@ -81,59 +81,59 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
 
             elif tabl == "session":
                 # *** REVIEW/EDIT THIS SCHEMA ***
-                desired_dtypes = {
-                    "activity_id": "int64",
-                    "timestamp": "datetime64[ns, UTC]",
-                    "start_time": "datetime64[ns, UTC]",
-                    "start_position_lat": "float",
-                    "start_position_long": "float",
-                    "total_elapsed_time": "float64",
-                    "total_timer_time": "float64",
-                    "total_distance": "float64",
-                    "total_strokes": "float64",
-                    "nec_lat": "float",
-                    "nec_long": "float",
-                    "swc_lat": "float",
-                    "swc_long": "float",
-                    "message_index": "int64",
-                    "total_calories": "float",
-                    "total_fat_calories": "float64",
-                    "enhanced_avg_speed": "float64",
-                    "avg_speed": "float64",
-                    "enhanced_max_speed": "float64",
-                    "max_speed": "float64",
-                    "avg_power": "float64",
-                    "max_power": "float64",
-                    "total_ascent": "float",
-                    "total_descent": "float",
-                    "first_lap_index": "float",
-                    "num_laps": "float",
-                    "event": "object",
-                    "event_type": "object",
-                    "sport": "object",
-                    "sub_sport": "object",
-                    "avg_heart_rate": "float",
-                    "max_heart_rate": "float",
-                    "avg_cadence": "float",
-                    "max_cadence": "float",
-                    "total_training_effect": "float64",
-                    "event_group": "float64",
-                    "trigger": "object",
-                    "pool_length": "float",
-                    "pool_length_unit": "object",
-                }
-
-                existing_dtypes = {
-                    col: dtype
-                    for col, dtype in desired_dtypes.items()
-                    if col in df.columns
-                }
-                if existing_dtypes:
-                    df = df.astype(existing_dtypes)
-
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
-                        df[col] = None
+                # desired_dtypes = {
+                #     "activity_id": "int64",
+                #     "timestamp": "datetime64[ns, UTC]",
+                #     "start_time": "datetime64[ns, UTC]",
+                #     "start_position_lat": "float",
+                #     "start_position_long": "float",
+                #     "total_elapsed_time": "float64",
+                #     "total_timer_time": "float64",
+                #     "total_distance": "float64",
+                #     "total_strokes": "float64",
+                #     "nec_lat": "float",
+                #     "nec_long": "float",
+                #     "swc_lat": "float",
+                #     "swc_long": "float",
+                #     "message_index": "int64",
+                #     "total_calories": "float",
+                #     "total_fat_calories": "float64",
+                #     "enhanced_avg_speed": "float64",
+                #     "avg_speed": "float64",
+                #     "enhanced_max_speed": "float64",
+                #     "max_speed": "float64",
+                #     "avg_power": "float64",
+                #     "max_power": "float64",
+                #     "total_ascent": "float",
+                #     "total_descent": "float",
+                #     "first_lap_index": "float",
+                #     "num_laps": "float",
+                #     "event": "object",
+                #     "event_type": "object",
+                #     "sport": "object",
+                #     "sub_sport": "object",
+                #     "avg_heart_rate": "float",
+                #     "max_heart_rate": "float",
+                #     "avg_cadence": "float",
+                #     "max_cadence": "float",
+                #     "total_training_effect": "float64",
+                #     "event_group": "float64",
+                #     "trigger": "object",
+                #     "pool_length": "float",
+                #     "pool_length_unit": "object",
+                # }
+                #
+                # existing_dtypes = {
+                #     col: dtype
+                #     for col, dtype in desired_dtypes.items()
+                #     if col in df.columns
+                # }
+                # if existing_dtypes:
+                #     df = df.astype(existing_dtypes)
+                #
+                # for col in desired_dtypes.keys():
+                #     if col not in df.columns:
+                #         df[col] = None
 
                 values_list = []
 
@@ -211,36 +211,38 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
             # --- Lap Table ---
             elif tabl == "lap":
                 # *** REVIEW/EDIT THIS SCHEMA ***
-                desired_dtypes = {
-                    "activity_id": "int64",
-                    "number": "int64",
-                    "start_time": "datetime64[ns, UTC]",
-                    "total_distance": "float64",
-                    "total_timer_time": "float64",
-                    "total_ascent": "int64",
-                    "total_descent": "int64",
-                    "avg_vertical_oscillation": "float64",
-                    "avg_stance_time": "float64",
-                    "avg_vertical_ratio": "float64",
-                    "avg_stance_time_balance": "float64",
-                    "avg_step_length": "float64",
-                    "intensity": "object",
-                    "avg_running_cadence": "int64",
-                    "max_heart_rate": "int64",
-                    "avg_heart_rate": "int64",
-                }
+                # desired_dtypes = {
+                #     "activity_id": "int64",
+                #     "number": "int64",
+                #     "start_time": "datetime64[ns, UTC]",
+                #     "total_distance": "float64",
+                #     "total_timer_time": "float64",
+                #     "total_ascent": "int64",
+                #     "total_descent": "int64",
+                #     "avg_vertical_oscillation": "float64",
+                #     "avg_stance_time": "float64",
+                #     "avg_vertical_ratio": "float64",
+                #     "avg_stance_time_balance": "float64",
+                #     "avg_step_length": "float64",
+                #     "intensity": "object",
+                #     "avg_running_cadence": "int64",
+                #     "max_heart_rate": "int64",
+                #     "avg_heart_rate": "int64",
+                # }
 
-                existing_dtypes = {
-                    col: dtype
-                    for col, dtype in desired_dtypes.items()
-                    if col in df.columns
-                }
-                if existing_dtypes:
-                    df = df.astype(existing_dtypes)
-
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
-                        df[col] = None
+                # existing_dtypes = {
+                #     col: dtype
+                #     for col, dtype in desired_dtypes.items()
+                #     if col in df.columns
+                # }
+                # if existing_dtypes:
+                #     try:
+                #         df = df.astype(existing_dtypes)
+                #     except:
+                #         df.to_csv("error lap df.csv", index=False)
+                # for col in desired_dtypes.keys():
+                #     if col not in df.columns:
+                #         df[col] = None
 
                 values_list = []
 
@@ -290,31 +292,31 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
             # --- Record Table ---
             elif tabl == "record":
                 # *** REVIEW/EDIT THIS SCHEMA ***
-                desired_dtypes = {
-                    "activity_id": "int64",
-                    "latitude": "float64",
-                    "longitude": "float64",
-                    "lap": "int64",
-                    "altitude": "float64",
-                    "timestamp": "datetime64[ns, UTC]",
-                    "heart_rate": "int64",
-                    "cadence": "int64",
-                    "fractional_cadence": "float64",
-                    "enhanced_speed": "int64",
-                    "distance": "float64",
-                }
-
-                existing_dtypes = {
-                    col: dtype
-                    for col, dtype in desired_dtypes.items()
-                    if col in df.columns
-                }
-                if existing_dtypes:
-                    df = df.astype(existing_dtypes)
-
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
-                        df[col] = None
+                # desired_dtypes = {
+                #     "activity_id": "int64",
+                #     "latitude": "float64",
+                #     "longitude": "float64",
+                #     "lap": "int64",
+                #     "altitude": "float64",
+                #     "timestamp": "datetime64[ns, UTC]",
+                #     "heart_rate": "int64",
+                #     "cadence": "int64",
+                #     "fractional_cadence": "float64",
+                #     "enhanced_speed": "int64",
+                #     "distance": "float64",
+                # }
+                #
+                # existing_dtypes = {
+                #     col: dtype
+                #     for col, dtype in desired_dtypes.items()
+                #     if col in df.columns
+                # }
+                # if existing_dtypes:
+                #     df = df.astype(existing_dtypes)
+                #
+                # for col in desired_dtypes.keys():
+                #     if col not in df.columns:
+                #         df[col] = None
 
                 values_list = []
 
@@ -356,44 +358,44 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
             # --- File ID Table ---
             elif tabl == "file_id":
                 # *** REVIEW/EDIT THIS SCHEMA ***
-                desired_dtypes = {
-                    "activity_id": "int64",
-                    "type": "object",
-                    "manufacturer": "object",
-                    "product": "int64",
-                    "serial_number": "int64",
-                    "time_created": "datetime64[ns, UTC]",
-                    "number": "float",  # Changed from int64 to float to handle NaN
-                }
-
-                existing_dtypes = {
-                    col: dtype
-                    for col, dtype in desired_dtypes.items()
-                    if col in df.columns
-                }
-
-                if existing_dtypes:
-                    # Handle potential conversion errors if 'product' is not purely numeric
-                    for col, dtype in existing_dtypes.items():
-                        try:
-                            if dtype == "int64":
-                                # Convert to float first to handle NaNs, then to nullable Int64
-                                df[col] = (
-                                    pd.to_numeric(df[col], errors="coerce")
-                                    .astype("float")
-                                    .astype("Int64")
-                                )
-                            else:
-                                df = df.astype({col: dtype})
-                        except Exception as e:
-                            print(
-                                f"Error casting column {col} to {dtype}: {e}. Forcing to object."
-                            )
-                            df = df.astype({col: "object"})  # Fallback
-
-                for col in desired_dtypes.keys():
-                    if col not in df.columns:
-                        df[col] = None
+                # desired_dtypes = {
+                #     "activity_id": "int64",
+                #     "type": "object",
+                #     "manufacturer": "object",
+                #     "product": "int64",
+                #     "serial_number": "int64",
+                #     "time_created": "datetime64[ns, UTC]",
+                #     "number": "float",  # Changed from int64 to float to handle NaN
+                # }
+                #
+                # existing_dtypes = {
+                #     col: dtype
+                #     for col, dtype in desired_dtypes.items()
+                #     if col in df.columns
+                # }
+                #
+                # if existing_dtypes:
+                #     # Handle potential conversion errors if 'product' is not purely numeric
+                #     for col, dtype in existing_dtypes.items():
+                #         try:
+                #             if dtype == "int64":
+                #                 # Convert to float first to handle NaNs, then to nullable Int64
+                #                 df[col] = (
+                #                     pd.to_numeric(df[col], errors="coerce")
+                #                     .astype("float")
+                #                     .astype("Int64")
+                #                 )
+                #             else:
+                #                 df = df.astype({col: dtype})
+                #         except Exception as e:
+                #             print(
+                #                 f"Error casting column {col} to {dtype}: {e}. Forcing to object."
+                #             )
+                #             df = df.astype({col: "object"})  # Fallback
+                #
+                # for col in desired_dtypes.keys():
+                #     if col not in df.columns:
+                #         df[col] = None
 
                 values_list = []
 
@@ -429,7 +431,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                     log_file.write(sql + "\n")
 
             # --- Length Table ---
-            elif tabl == "length":
+            elif tabl == "length" and not df.empty:
                 # *** REVIEW/EDIT THIS SCHEMA ***
                 desired_dtypes = {
                     "activity_id": "int64",
@@ -437,7 +439,7 @@ def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
                     "start_time": "datetime64[ns, UTC]",
                     "total_elapsed_time": "float64",
                     "total_timer_time": "float64",
-                    "total_strokes": "int64",
+                    "total_strokes": "float64",
                     "avg_speed": "float64",
                     "swim_stroke": "object",
                 }
