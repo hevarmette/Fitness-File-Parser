@@ -16,23 +16,28 @@ from helpers import (
     get_dataframes,
 )
 
-import psycopg2
-from psycopg2.extras import execute_values
+from watch_files_to_sql import write_sql_statement_to_file
+
 
 pd.set_option("display.max_columns", None)
 
 # ------------------------------------
 # DB LOADING LOGIC (OLD)
 # ------------------------------------
+should_get_config = True
+if should_get_config:
+    import psycopg2
+    from psycopg2.extras import execute_values
 
-
-config = toml.load("secrets.toml")
-db_config = config["postgresql"]
-conn = psycopg2.connect(**db_config)
+    config = toml.load("secrets.toml")
+    db_config = config["postgresql"]
+    conn = psycopg2.connect(**db_config)
+else:
+    conn = None
 
 
 def load_dataframe_to_postgres(df, tabl):
-    """Old DB insert loader: writes row-by-row into Postgres. This wasn't working in the old version parse fit nixos, and I don't plan on copying it over here, but just in case, I will leave this where it was."""
+    """Load data to postgres"""
     if df.empty:
         print(f"[SKIP] {tabl}: dataframe is empty.")
         return True
@@ -43,26 +48,28 @@ def load_dataframe_to_postgres(df, tabl):
 
     # Convert DataFrame to a list of row tuples
     rows = df.values.tolist()
+    if conn is not None:
+        cursor = conn.cursor()
 
-    cursor = conn.cursor()
+        try:
+            # Bulk insert template
+            insert_sql = f"INSERT INTO public.{tabl} ({col_names}) VALUES %s"
 
-    try:
-        # Bulk insert template
-        insert_sql = f"INSERT INTO public.{tabl} ({col_names}) VALUES %s"
+            execute_values(cursor, insert_sql, rows)
 
-        execute_values(cursor, insert_sql, rows)
+            conn.commit()
+            cursor.close()
 
-        conn.commit()
-        cursor.close()
+            print(f"[OK] Inserted {len(rows)} rows into {tabl}")
+            return True
 
-        print(f"[OK] Inserted {len(rows)} rows into {tabl}")
-        return True
-
-    except Exception as e:
-        conn.rollback()
-        cursor.close()
-        print(f"[ERROR] Inserting into {tabl}: {e}")
-        print(df.head(20))
+        except Exception as e:
+            conn.rollback()
+            cursor.close()
+            print(f"[ERROR] Inserting into {tabl}: {e}")
+            # print(df.head(20))
+            return False
+    else:
         return False
 
 
@@ -71,7 +78,7 @@ def load_dataframe_to_postgres(df, tabl):
 # ------------------------------------
 
 
-def write_sql_statement_to_file(df, tabl, log_file_path=None):
+def write_sql_statement_to_file_legacy(df, tabl, log_file_path=None):
     """Takes a dataframe and it's source FIT file type,
     if dataframe is not empty then it is filled up with 0 for NaN values,
     dataframe is checked against the general schema per FIT file type - proper data types are assigned to the columns,
@@ -381,9 +388,9 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
 def insert_or_fallback(df, table):
     if not df.empty:
         ok = load_dataframe_to_postgres(df, table)
-        if ok is None:
+        if not ok:
             print(f"Falling back to SQL file for {table}...")
-            write_sql_statement_to_file_watch(df, table)
+            write_sql_statement_to_file(df, table)
     else:
         print(f"Skipped {table} because it was empty")
 
@@ -395,6 +402,7 @@ def insert_or_fallback(df, table):
 if __name__ == "__main__":
 
     dir = "~/Documents/Updated Garmin/"
+    # dir = "example activities/run"
     file_extension = ".fit"
 
     after_date = datetime(2025, 10, 8).date()
@@ -410,7 +418,7 @@ if __name__ == "__main__":
 
     errors = []
 
-    for file in filtered_files:
+    for file in files:
         fname = dir + file
         json_file = fname.replace(file_extension, "_summary.json")
 

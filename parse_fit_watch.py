@@ -1,6 +1,6 @@
 # parse_fit_watch.py
 # New pipeline: Watch-only FIT files (no JSON)
-# Uses newer SQL writer: write_sql_statement_to_file_watch()
+# Uses newer SQL writer: write_sql_statement_to_file()
 
 import os
 from os import listdir
@@ -14,7 +14,7 @@ from helpers import (
     extract_date_from_filename_connect,
     get_dataframes,
 )
-from watch_files_to_sql import write_sql_statement_to_file_watch
+from watch_files_to_sql import write_sql_statement_to_file
 import requests
 import time
 
@@ -153,7 +153,7 @@ def insert_or_fallback(df, table):
         ok = db_insert_dataframe(df, table, conn)
         if ok is None:
             print(f"Falling back to SQL file for {table}...")
-            write_sql_statement_to_file_watch(df, table)
+            write_sql_statement_to_file(df, table)
     else:
         print(f"Skipped {table} because it was empty")
 
@@ -219,12 +219,12 @@ if __name__ == "__main__":
             )
 
             # write all tables to SQL files
-            write_sql_statement_to_file_watch(activity_df, "activity")
-            write_sql_statement_to_file_watch(file_id_df, "file_id")
-            write_sql_statement_to_file_watch(lap_df, "lap")
-            write_sql_statement_to_file_watch(record_df, "record")
-            write_sql_statement_to_file_watch(session_df, "session")
-            write_sql_statement_to_file_watch(length_df, "length")
+            write_sql_statement_to_file(activity_df, "activity")
+            write_sql_statement_to_file(file_id_df, "file_id")
+            write_sql_statement_to_file(lap_df, "lap")
+            write_sql_statement_to_file(record_df, "record")
+            write_sql_statement_to_file(session_df, "session")
+            write_sql_statement_to_file(length_df, "length")
 
             print("Skipped DB inserts for this file due to activity failure.\n")
 
@@ -249,4 +249,5 @@ if __name__ == "__main__":
         # TODO:
         # record data lap column looks like total laps + 1 for new watch for all records? gonna have to determine laps based on distances compared to lap def
         # data fix - activity table: replace 0 or '0' for description, total_timer_time, local timestamp, num_sessions, type, event, event_type, and event_group with null. might have to reparse all the files to fix workout_feel and effort because all the connect files were filled with zero, which is very weak description.
+        # i think i will reparse all the files instead of doing the data fix above
         # NOTE: session parser is using int definitions right now

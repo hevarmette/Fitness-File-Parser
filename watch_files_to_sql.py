@@ -5,9 +5,8 @@ from os.path import isfile, join
 from datetime import datetime
 
 
-def write_sql_statement_to_file_watch(df, tabl, log_file_path=None):
+def write_sql_statement_to_file(df, tabl, log_file_path=None):
     """
-    New SQL writer (watch-only).
     Outputs SQL INSERT statements with robust formatting.
     """
     if log_file_path is None:

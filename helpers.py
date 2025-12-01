@@ -1,8 +1,7 @@
 # helpers.py
 # Shared utilities, constants, FIT parsing helpers, and DataFrame construction
 
-from datetime import datetime, timedelta
-from typing import Dict, Union, Optional, Tuple
+from datetime import datetime
 import pandas as pd
 import fitdecode
 import json
@@ -173,6 +172,7 @@ def get_nested_value(data, keys_chain):
 
 
 def get_user_activity_details(file):
+    """Returns the activity id for an activity"""
     name = os.path.basename(file)
     activity_id = name.split("_")[1]
     if "." in activity_id:
