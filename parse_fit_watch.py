@@ -18,13 +18,13 @@ from watch_files_to_sql import write_sql_statement_to_file
 import requests
 import time
 
-# import toml
-# import psycopg2
-# from psycopg2.extras import execute_values
+import toml
+import psycopg2
+from psycopg2.extras import execute_values
 
-# config = toml.load("secrets.toml")
-# db_config = config["postgresql"]
-# conn = psycopg2.connect(**db_config)
+config = toml.load("secrets.toml")
+db_config = config["postgresql"]
+conn = psycopg2.connect(**db_config)
 
 
 def reverse_geocode(lat, lon):
@@ -164,7 +164,7 @@ def insert_or_fallback(df, table):
 
 if __name__ == "__main__":
 
-    dir = "example activities/multi sport/"
+    dir = "example activities/Activity/"
     file_extension = ".fit"
 
     after_date = datetime(2025, 8, 1).date()
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     ]
 
     filtered_files = [
-        f for f in files if after_date < extract_date_from_filename_connect(f) <= today
+        f for f in files if after_date < extract_date_from_filename_watch(f) <= today
     ]
 
     for file in filtered_files:
@@ -198,10 +198,10 @@ if __name__ == "__main__":
         # ---------------------------
         print("Inserting activity...")
 
-        # new_activity_id = db_insert_dataframe(
-        #     activity_df, "activity", conn, return_id=True
-        # )
-        new_activity_id = None
+        new_activity_id = db_insert_dataframe(
+            activity_df, "activity", conn, return_id=True
+        )
+        # new_activity_id = None
         if new_activity_id is None:
             # ------------------------------------------
             # DB FAILED → FALLBACK FOR *ALL* TABLES
