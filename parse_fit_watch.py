@@ -112,6 +112,9 @@ def db_insert_dataframe(df, table, conn, return_id=False):
     if df.empty:
         return None
 
+    # This shouldn't be necessary, but is a fail safe to ensure inserts as sent as NULLs and no errors sending NaNs
+    df = df.where(pd.notna(df), None)
+
     cursor = conn.cursor()
 
     cols = list(df.columns)
@@ -201,6 +204,7 @@ if __name__ == "__main__":
         new_activity_id = db_insert_dataframe(
             activity_df, "activity", conn, return_id=True
         )
+        new_activity_id = None
         # new_activity_id = None
         if new_activity_id is None:
             # ------------------------------------------
