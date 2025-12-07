@@ -232,6 +232,7 @@ def get_fit_session_data(frame):
 
     # NOTE: converting from semicircles/degrees to true lat and longs. just because it's easier to play around with the data without converting everytime.
     # This is meant to store data for one person, so precision and computational savings don't matter much to me as ease of use
+    # It would be more efficient to do perform vector multiplication on the Series insead of each individual point like below
     for field in session[:5]:
         if frame.has_field(field):
             data[field] = frame.get_value(field) / DIVISOR
@@ -340,6 +341,10 @@ def get_dataframes(fname: str, activity_id=None):
     file_id_df = pd.DataFrame(file_id_data, columns=file_id)
     activity_df = pd.DataFrame(activity_data, columns=activity)
     session_df = pd.DataFrame(session_data, columns=session)
+    # NOTE: converting lat and long ints into floats. used with the get other fit data method
+    for col in session[:5]:
+        mask = session_df[col].notnull()
+        session_df.loc[mask, col] = session_df.loc[mask, col] / DIVISOR
     length_df = pd.DataFrame(length_data, columns=length)
 
     # Length frame indexing adjustments

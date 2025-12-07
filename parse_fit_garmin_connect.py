@@ -401,11 +401,10 @@ def insert_or_fallback(df, table):
 
 if __name__ == "__main__":
 
-    dir = "~/Documents/Updated Garmin/"
-    # dir = "example activities/run"
+    dir = "/home/heath/Documents/Updated Garmin/"
     file_extension = ".fit"
 
-    after_date = datetime(2025, 10, 8).date()
+    after_date = datetime(2024, 12, 31).date()
     today = datetime.now().date()
 
     files = [
@@ -413,20 +412,28 @@ if __name__ == "__main__":
     ]
 
     filtered_files = [
-        f for f in files if after_date < extract_date_from_filename_connect(f) <= today
+        f
+        for f in files
+        if after_date < extract_date_from_filename_connect(f)  # <= today
     ]
 
     errors = []
 
-    for file in files:
+    for file in filtered_files:
         fname = dir + file
         json_file = fname.replace(file_extension, "_summary.json")
 
         activity_id = get_user_activity_details(fname)
 
-        lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
-            get_dataframes(fname, activity_id)
-        )
+        try:
+            lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
+                get_dataframes(fname, activity_id)
+            )
+        except Exception as e:
+            print(f"[ERROR] getting dataframes for {activity_id} error: {e}")
+            log_file_path = os.path.join(os.path.dirname(__file__), f"errors.txt")
+            with open(log_file_path, "a") as log_file:
+                log_file.write(f"\n{activity_id}")
 
         json_info_df = pd.DataFrame(get_json_info(json_file), index=[0])
         activity_df_fixed = pd.concat([activity_df, json_info_df], axis=1)

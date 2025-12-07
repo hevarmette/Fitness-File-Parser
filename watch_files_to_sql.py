@@ -22,6 +22,11 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
             return f"'{safe}'"
         return str(value)
 
+    def get_sql_value(row, col, quote=False):
+        if col in row:
+            return sql_format(row[col], quote=quote)
+        return "NULL"
+
     with open(log_file_path, "a") as log_file:
         log_file.write("\n\n")
 
