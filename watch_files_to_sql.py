@@ -35,52 +35,80 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
 
         else:
             if tabl == "activity":
-                # must explicitly remove the timezone from local timestamp to send to db (it has no timezone there)
-                if df["local_timestamp"].dtype.name.startswith("datetime64[ns,"):
+
+                # Remove timezone from local_timestamp if present
+                if "local_timestamp" in df.columns and df[
+                    "local_timestamp"
+                ].dtype.name.startswith("datetime64[ns,"):
                     df["local_timestamp"] = df["local_timestamp"].dt.tz_localize(None)
-                # Define your desired dtype mappings
-                desired_dtypes = {
-                    "activity_id": "int64",
-                    "timestamp": "datetime64[ns, UTC]",
-                    "adjusted_distance": "float64",
-                    "adjusted_duration": "float64",
-                    "workout_feel": "int64",
-                    "effort": "int64",
-                    "category": "object",
-                    "activity_name": "object",
-                    "description": "object",
-                    "total_timer_time": "float64",
-                    "local_timestamp": "datetime64[ns]",
-                    "num_sessions": "int64",
-                    "type": "object",
-                    "event": "object",
-                    "event_type": "object",
-                    "event_group": "object",
-                }
 
-                # Filter to only include columns that exist in the DataFrame
-                existing_dtypes = {
-                    col: dtype
-                    for col, dtype in desired_dtypes.items()
-                    if col in df.columns
-                }
+                # Ensure all expected columns exist (missing → None)
+                expected_cols = [
+                    "activity_id",
+                    "timestamp",
+                    "adjusted_distance",
+                    "adjusted_duration",
+                    "workout_feel",
+                    "effort",
+                    "category",
+                    "activity_name",
+                    "description",
+                    "total_timer_time",
+                    "local_timestamp",
+                    "num_sessions",
+                    "type",
+                    "event",
+                    "event_type",
+                    "event_group",
+                ]
 
-                # Apply the conversion
-                df = df.astype(existing_dtypes)
-
-                for col in desired_dtypes.keys():
+                for col in expected_cols:
                     if col not in df.columns:
                         df[col] = None
 
+                # ---- BUILD BULK INSERT ----
+                values_list = []
+
                 for index, row in df.iterrows():
 
-                    # --- CHANGE ---
-                    # Use the new sql_format() helper for every value
-                    sql = f"""INSERT INTO activity(activity_id, timestamp, adjusted_distance, adjusted_duration, workout_feel, effort, category, activity_name, description, total_timer_time, local_timestamp, num_sessions, type, event, event_type, event_group)
-                    VALUES ({sql_format(row['activity_id'])}, {sql_format(row['timestamp'], quote=True)}, {sql_format(row['adjusted_distance'])}, {sql_format(row['adjusted_duration'])}, {sql_format(row['workout_feel'])}, {sql_format(row['effort'])}, {sql_format(row['category'], quote=True)}, {sql_format(row['activity_name'], quote=True)}, {sql_format(row['description'], quote=True)}, {sql_format(row['total_timer_time'])}, {sql_format(row['local_timestamp'], quote=True)}, {sql_format(row['num_sessions'])}, {sql_format(row['type'], quote=True)}, {sql_format(row['event'], quote=True)}, {sql_format(row['event_type'], quote=True)}, {sql_format(row['event_group'], quote=True)})
-                    ON CONFLICT (activity_id) DO NOTHING;"""
+                    row_str = (
+                        "("
+                        f"{get_sql_value(row, 'activity_id')}, "
+                        f"{get_sql_value(row, 'timestamp', quote=True)}, "
+                        f"{get_sql_value(row, 'adjusted_distance')}, "
+                        f"{get_sql_value(row, 'adjusted_duration')}, "
+                        f"{get_sql_value(row, 'workout_feel')}, "
+                        f"{get_sql_value(row, 'effort')}, "
+                        f"{get_sql_value(row, 'category', quote=True)}, "
+                        f"{get_sql_value(row, 'activity_name', quote=True)}, "
+                        f"{get_sql_value(row, 'description', quote=True)}, "
+                        f"{get_sql_value(row, 'total_timer_time')}, "
+                        f"{get_sql_value(row, 'local_timestamp', quote=True)}, "
+                        f"{get_sql_value(row, 'num_sessions')}, "
+                        f"{get_sql_value(row, 'type', quote=True)}, "
+                        f"{get_sql_value(row, 'event', quote=True)}, "
+                        f"{get_sql_value(row, 'event_type', quote=True)}, "
+                        f"{get_sql_value(row, 'event_group', quote=True)}"
+                        ")"
+                    )
 
-                    # Write to log file
+                    values_list.append(row_str)
+
+                if values_list:
+                    bulk_values = ",\n".join(values_list)
+
+                    sql = f"""
+                    INSERT INTO activity (
+                        activity_id, timestamp, adjusted_distance, adjusted_duration,
+                        workout_feel, effort, category, activity_name, description,
+                        total_timer_time, local_timestamp, num_sessions, type,
+                        event, event_type, event_group
+                    )
+                    VALUES
+                    {bulk_values}
+                    ON CONFLICT (activity_id) DO NOTHING;
+                    """
+
                     log_file.write(sql + "\n")
 
             elif tabl == "session":
@@ -145,45 +173,45 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     # Create the value group for this specific row
                     row_str = (
                         f"("
-                        f"{sql_format(row['activity_id'])}, "
-                        f"{sql_format(row['timestamp'], quote=True)}, "
-                        f"{sql_format(row['start_time'], quote=True)}, "
-                        f"{sql_format(row['start_position_lat'])}, "
-                        f"{sql_format(row['start_position_long'])}, "
-                        f"{sql_format(row['total_elapsed_time'])}, "
-                        f"{sql_format(row['total_timer_time'])}, "
-                        f"{sql_format(row['total_distance'])}, "
-                        f"{sql_format(row['total_strokes'])}, "
-                        f"{sql_format(row['nec_lat'])}, "
-                        f"{sql_format(row['nec_long'])}, "
-                        f"{sql_format(row['swc_lat'])}, "
-                        f"{sql_format(row['swc_long'])}, "
-                        f"{sql_format(row['message_index'])}, "
-                        f"{sql_format(row['total_calories'])}, "
-                        f"{sql_format(row['total_fat_calories'])}, "
-                        f"{sql_format(row['enhanced_avg_speed'])}, "
-                        f"{sql_format(row['avg_speed'])}, "
-                        f"{sql_format(row['enhanced_max_speed'])}, "
-                        f"{sql_format(row['max_speed'])}, "
-                        f"{sql_format(row['avg_power'])}, "
-                        f"{sql_format(row['max_power'])}, "
-                        f"{sql_format(row['total_ascent'])}, "
-                        f"{sql_format(row['total_descent'])}, "
-                        f"{sql_format(row['first_lap_index'])}, "
-                        f"{sql_format(row['num_laps'])}, "
-                        f"{sql_format(row['event'], quote=True)}, "
-                        f"{sql_format(row['event_type'], quote=True)}, "
-                        f"{sql_format(row['sport'], quote=True)}, "
-                        f"{sql_format(row['sub_sport'], quote=True)}, "
-                        f"{sql_format(row['avg_heart_rate'])}, "
-                        f"{sql_format(row['max_heart_rate'])}, "
-                        f"{sql_format(row['avg_cadence'])}, "
-                        f"{sql_format(row['max_cadence'])}, "
-                        f"{sql_format(row['total_training_effect'])}, "
-                        f"{sql_format(row['event_group'])}, "
-                        f"{sql_format(row['trigger'], quote=True)}, "
-                        f"{sql_format(row['pool_length'])}, "
-                        f"{sql_format(row['pool_length_unit'], quote=True)}"
+                        f"{get_sql_value(row, 'activity_id')}, "
+                        f"{get_sql_value(row, 'timestamp', quote=True)}, "
+                        f"{get_sql_value(row, 'start_time', quote=True)}, "
+                        f"{get_sql_value(row, 'start_position_lat')}, "
+                        f"{get_sql_value(row, 'start_position_long')}, "
+                        f"{get_sql_value(row, 'total_elapsed_time')}, "
+                        f"{get_sql_value(row, 'total_timer_time')}, "
+                        f"{get_sql_value(row, 'total_distance')}, "
+                        f"{get_sql_value(row, 'total_strokes')}, "
+                        f"{get_sql_value(row, 'nec_lat')}, "
+                        f"{get_sql_value(row, 'nec_long')}, "
+                        f"{get_sql_value(row, 'swc_lat')}, "
+                        f"{get_sql_value(row, 'swc_long')}, "
+                        f"{get_sql_value(row, 'message_index')}, "
+                        f"{get_sql_value(row, 'total_calories')}, "
+                        f"{get_sql_value(row, 'total_fat_calories')}, "
+                        f"{get_sql_value(row, 'enhanced_avg_speed')}, "
+                        f"{get_sql_value(row, 'avg_speed')}, "
+                        f"{get_sql_value(row, 'enhanced_max_speed')}, "
+                        f"{get_sql_value(row, 'max_speed')}, "
+                        f"{get_sql_value(row, 'avg_power')}, "
+                        f"{get_sql_value(row, 'max_power')}, "
+                        f"{get_sql_value(row, 'total_ascent')}, "
+                        f"{get_sql_value(row, 'total_descent')}, "
+                        f"{get_sql_value(row, 'first_lap_index')}, "
+                        f"{get_sql_value(row, 'num_laps')}, "
+                        f"{get_sql_value(row, 'event', quote=True)}, "
+                        f"{get_sql_value(row, 'event_type', quote=True)}, "
+                        f"{get_sql_value(row, 'sport', quote=True)}, "
+                        f"{get_sql_value(row, 'sub_sport', quote=True)}, "
+                        f"{get_sql_value(row, 'avg_heart_rate')}, "
+                        f"{get_sql_value(row, 'max_heart_rate')}, "
+                        f"{get_sql_value(row, 'avg_cadence')}, "
+                        f"{get_sql_value(row, 'max_cadence')}, "
+                        f"{get_sql_value(row, 'total_training_effect')}, "
+                        f"{get_sql_value(row, 'event_group')}, "
+                        f"{get_sql_value(row, 'trigger', quote=True)}, "
+                        f"{get_sql_value(row, 'pool_length')}, "
+                        f"{get_sql_value(row, 'pool_length_unit', quote=True)}"
                         f")"
                     )
                     values_list.append(row_str)
@@ -254,22 +282,22 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     # Create the value group for this specific row
                     row_str = (
                         f"("
-                        f"{sql_format(row['activity_id'])}, "
-                        f"{sql_format(row['number'])}, "
-                        f"{sql_format(row['start_time'], quote=True)}, "
-                        f"{sql_format(row['total_distance'])}, "
-                        f"{sql_format(row['total_timer_time'])}, "
-                        f"{sql_format(row['total_ascent'])}, "
-                        f"{sql_format(row['total_descent'])}, "
-                        f"{sql_format(row['avg_vertical_oscillation'])}, "
-                        f"{sql_format(row['avg_stance_time'])}, "
-                        f"{sql_format(row['avg_vertical_ratio'])}, "
-                        f"{sql_format(row['avg_stance_time_balance'])}, "
-                        f"{sql_format(row['avg_step_length'])}, "
-                        f"{sql_format(row['intensity'], quote=True)}, "
-                        f"{sql_format(row['avg_running_cadence'])}, "
-                        f"{sql_format(row['max_heart_rate'])}, "
-                        f"{sql_format(row['avg_heart_rate'])}"
+                        f"{get_sql_value(row, 'activity_id')}, "
+                        f"{get_sql_value(row, 'number')}, "
+                        f"{get_sql_value(row, 'start_time', quote=True)}, "
+                        f"{get_sql_value(row, 'total_distance')}, "
+                        f"{get_sql_value(row, 'total_timer_time')}, "
+                        f"{get_sql_value(row, 'total_ascent')}, "
+                        f"{get_sql_value(row, 'total_descent')}, "
+                        f"{get_sql_value(row, 'avg_vertical_oscillation')}, "
+                        f"{get_sql_value(row, 'avg_stance_time')}, "
+                        f"{get_sql_value(row, 'avg_vertical_ratio')}, "
+                        f"{get_sql_value(row, 'avg_stance_time_balance')}, "
+                        f"{get_sql_value(row, 'avg_step_length')}, "
+                        f"{get_sql_value(row, 'intensity', quote=True)}, "
+                        f"{get_sql_value(row, 'avg_running_cadence')}, "
+                        f"{get_sql_value(row, 'max_heart_rate')}, "
+                        f"{get_sql_value(row, 'avg_heart_rate')}"
                         f")"
                     )
                     values_list.append(row_str)
@@ -327,17 +355,17 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                 for index, row in df.iterrows():
                     # Create a tuple of formatted strings using your existing helper function
                     row_values = (
-                        f"{sql_format(row['activity_id'])}",
-                        f"{sql_format(row['latitude'])}",
-                        f"{sql_format(row['longitude'])}",
-                        f"{sql_format(row['lap'])}",
-                        f"{sql_format(row['altitude'])}",
-                        f"{sql_format(row['timestamp'], quote=True)}",
-                        f"{sql_format(row['heart_rate'])}",
-                        f"{sql_format(row['cadence'])}",
-                        f"{sql_format(row['fractional_cadence'])}",
-                        f"{sql_format(row['enhanced_speed'])}",
-                        f"{sql_format(row['distance'])}",
+                        f"{get_sql_value(row, 'activity_id')}",
+                        f"{get_sql_value(row, 'latitude')}",
+                        f"{get_sql_value(row, 'longitude')}",
+                        f"{get_sql_value(row, 'lap')}",
+                        f"{get_sql_value(row, 'altitude')}",
+                        f"{get_sql_value(row, 'timestamp', quote=True)}",
+                        f"{get_sql_value(row, 'heart_rate')}",
+                        f"{get_sql_value(row, 'cadence')}",
+                        f"{get_sql_value(row, 'fractional_cadence')}",
+                        f"{get_sql_value(row, 'enhanced_speed')}",
+                        f"{get_sql_value(row, 'distance')}",
                     )
 
                     # Join the row values with commas and wrap in parentheses -> (val1, val2, ...)
@@ -407,13 +435,13 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     # Create the value group for this specific row
                     row_str = (
                         f"("
-                        f"{sql_format(row['activity_id'])}, "
-                        f"{sql_format(row['type'], quote=True)}, "
-                        f"{sql_format(row['manufacturer'], quote=True)}, "
-                        f"{sql_format(row['product'])}, "
-                        f"{sql_format(row['serial_number'])}, "
-                        f"{sql_format(row['time_created'], quote=True)}, "
-                        f"{sql_format(row['number'])}"
+                        f"{get_sql_value(row, 'activity_id')}, "
+                        f"{get_sql_value(row, 'type', quote=True)}, "
+                        f"{get_sql_value(row, 'manufacturer', quote=True)}, "
+                        f"{get_sql_value(row, 'product')}, "
+                        f"{get_sql_value(row, 'serial_number')}, "
+                        f"{get_sql_value(row, 'time_created', quote=True)}, "
+                        f"{get_sql_value(row, 'number')}"
                         f")"
                     )
                     values_list.append(row_str)
@@ -467,14 +495,14 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     # Create the value group for this specific row
                     row_str = (
                         f"("
-                        f"{sql_format(row['activity_id'])}, "
-                        f"{sql_format(row['timestamp'], quote=True)}, "
-                        f"{sql_format(row['start_time'], quote=True)}, "
-                        f"{sql_format(row['total_elapsed_time'])}, "
-                        f"{sql_format(row['total_timer_time'])}, "
-                        f"{sql_format(row['total_strokes'])}, "
-                        f"{sql_format(row['avg_speed'])}, "
-                        f"{sql_format(row['swim_stroke'], quote=True)}"
+                        f"{get_sql_value(row, 'activity_id')}, "
+                        f"{get_sql_value(row, 'timestamp', quote=True)}, "
+                        f"{get_sql_value(row, 'start_time', quote=True)}, "
+                        f"{get_sql_value(row, 'total_elapsed_time')}, "
+                        f"{get_sql_value(row, 'total_timer_time')}, "
+                        f"{get_sql_value(row, 'total_strokes')}, "
+                        f"{get_sql_value(row, 'avg_speed')}, "
+                        f"{get_sql_value(row, 'swim_stroke', quote=True)}"
                         f")"
                     )
                     values_list.append(row_str)
