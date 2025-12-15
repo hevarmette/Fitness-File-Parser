@@ -167,7 +167,7 @@ def insert_or_fallback(df, table):
 
 if __name__ == "__main__":
 
-    dir = "example activities/Activity/"
+    dir = "example activities/run/"
     file_extension = ".fit"
 
     after_date = datetime(2025, 8, 1).date()
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     ]
 
     filtered_files = [
-        f for f in files if after_date < extract_date_from_filename_watch(f) <= today
+        f for f in files if after_date < extract_date_from_filename_connect(f) <= today
     ]
 
     for file in filtered_files:

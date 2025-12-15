@@ -1268,3 +1268,13 @@
                     VALUES 
                     (19679000639, 'activity', 'suunto', 65, NULL, '2025-07-09 12:16:56+00:00', NULL);
                     
+
+
+
+                    INSERT INTO file_id(
+                        activity_id, type, manufacturer, product, 
+                        serial_number, time_created, number
+                    )
+                    VALUES 
+                    (0, 'activity', 'garmin', '4570', 3611338015, '2025-10-06 15:16:53+00:00', NULL);
+                    

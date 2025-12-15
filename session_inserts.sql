@@ -5372,3 +5372,21 @@
                     VALUES 
                     (19679000639, '2025-07-09 12:16:56+00:00', '2025-07-09 11:14:12+00:00', NULL, NULL, 3764.0, 3599.78, 12650.0, NULL, NULL, NULL, NULL, NULL, NULL, 969, NULL, 3.514, 3.514, 4.13, 4.13, 293, 761, 94, 94, 0, 8, 'session', 'stop', 'running', NULL, 176, 205, 84, 87, 5.0, NULL, NULL, NULL, NULL);
                     
+
+
+
+                    INSERT INTO public.session(
+                        activity_id, timestamp, start_time, start_position_lat, 
+                        start_position_long, total_elapsed_time, total_timer_time, 
+                        total_distance, total_strokes, nec_lat, nec_long, swc_lat, 
+                        swc_long, message_index, total_calories, total_fat_calories, 
+                        enhanced_avg_speed, avg_speed, enhanced_max_speed, max_speed, 
+                        avg_power, max_power, total_ascent, total_descent, 
+                        first_lap_index, num_laps, event, event_type, sport, 
+                        sub_sport, avg_heart_rate, max_heart_rate, avg_cadence, 
+                        max_cadence, total_training_effect, event_group, trigger, 
+                        pool_length, pool_length_unit
+                    )
+                    VALUES 
+                    (0, '2025-10-06 15:16:53+00:00', '2025-10-06 15:16:53+00:00', 33.476449800655246, -86.76325902342796, 2810.126, 2762.281, 9770.39, NULL, 399730465, -86.74302234314382, 33.4759961720556, -86.77241834811866, 0, 736, NULL, 3.537, NULL, 4.525, NULL, NULL, NULL, 85, 82, 0, 1, 'session', 'stop', 'running', 'generic', 149, 168, 82, 87, 3.1, NULL, 'activity_end', NULL, NULL);
+                    

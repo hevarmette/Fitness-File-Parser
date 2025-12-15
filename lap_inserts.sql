@@ -4189,3 +4189,16 @@
 (19679000639, 7, '2025-07-09 12:02:17+00:00', 1609.0, 441.534, 6, 26.0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 201, 184),
 (19679000639, 8, '2025-07-09 12:10:24+00:00', 1372.0, 391.854, 8, 3.0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 205, 184);
                     
+
+
+
+                    INSERT INTO lap(
+                        activity_id, number, start_time, total_distance, 
+                        total_timer_time, total_ascent, total_descent, 
+                        avg_vertical_oscillation, avg_stance_time, avg_vertical_ratio, 
+                        avg_stance_time_balance, avg_step_length, intensity, 
+                        avg_running_cadence, max_heart_rate, avg_heart_rate
+                    )
+                    VALUES 
+                    (0, 1, '2025-10-06 15:16:53+00:00', 9770.39, 2762.281, 85, 82, 99.5, 262.0, 7.73, NULL, 1291.0, 'interval', 82, 168, 149);
+                    

@@ -1411,3 +1411,16 @@ Splits: 5:07, 5:17, 6:58
                     (19241459841, '2025-05-26 12:38:00+00:00', 10120.2, 2218.0, 75, 90, 'race', 'Cotton Row Run', 'Splits: 5:40, 6:01, 6:36, 5:49, 5:44, 5:55, 1:03', 2218.0, NULL, 1, 'manual', 'activity', 'stop', NULL)
                     ON CONFLICT (activity_id) DO NOTHING;
                     
+
+
+
+                    INSERT INTO activity (
+                        activity_id, timestamp, adjusted_distance, adjusted_duration,
+                        workout_feel, effort, category, activity_name, description,
+                        total_timer_time, local_timestamp, num_sessions, type,
+                        event, event_type, event_group
+                    )
+                    VALUES
+                    (0, '2025-10-06 15:16:53+00:00', 9770.39, 2762.281, NULL, NULL, NULL, 'Running', NULL, 2762.281, '2025-10-06 10:16:53', 1, 'manual', 'activity', 'stop', NULL)
+                    ON CONFLICT (activity_id) DO NOTHING;
+                    

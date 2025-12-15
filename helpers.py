@@ -210,11 +210,11 @@ def get_fit_point_data(frame):
     data = {}
     lat = frame.get_value("position_lat")
     long = frame.get_value("position_long")
-    if lat != None:
+    if lat is not None:
         data["latitude"] = lat / DIVISOR
     else:
         data["latitude"] = lat
-    if long != None:
+    if long is not None:
         data["longitude"] = long / DIVISOR
     else:
         data["longitude"] = long
@@ -341,7 +341,7 @@ def get_dataframes(fname: str, activity_id=None):
     file_id_df = pd.DataFrame(file_id_data, columns=file_id)
     activity_df = pd.DataFrame(activity_data, columns=activity)
     session_df = pd.DataFrame(session_data, columns=session)
-    # NOTE: converting lat and long ints into floats. used with the get other fit data method
+    # NOTE: converting lat and long from ints into floats. used with the get other fit data method
     for col in session[:5]:
         mask = session_df[col].notnull()
         session_df.loc[mask, col] = session_df.loc[mask, col] / DIVISOR
