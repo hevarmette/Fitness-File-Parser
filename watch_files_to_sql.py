@@ -438,7 +438,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                         f"{get_sql_value(row, 'activity_id')}, "
                         f"{get_sql_value(row, 'type', quote=True)}, "
                         f"{get_sql_value(row, 'manufacturer', quote=True)}, "
-                        f"{get_sql_value(row, 'product')}, "
+                        f"{get_sql_value(row, 'product', quote=True)}, "
                         f"{get_sql_value(row, 'serial_number')}, "
                         f"{get_sql_value(row, 'time_created', quote=True)}, "
                         f"{get_sql_value(row, 'number')}"
@@ -469,7 +469,6 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     "activity_id": "int64",
                     "timestamp": "datetime64[ns, UTC]",
                     "start_time": "datetime64[ns, UTC]",
-                    "total_elapsed_time": "float64",
                     "total_timer_time": "float64",
                     "total_strokes": "float64",
                     "avg_speed": "float64",
@@ -498,7 +497,6 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                         f"{get_sql_value(row, 'activity_id')}, "
                         f"{get_sql_value(row, 'timestamp', quote=True)}, "
                         f"{get_sql_value(row, 'start_time', quote=True)}, "
-                        f"{get_sql_value(row, 'total_elapsed_time')}, "
                         f"{get_sql_value(row, 'total_timer_time')}, "
                         f"{get_sql_value(row, 'total_strokes')}, "
                         f"{get_sql_value(row, 'avg_speed')}, "
@@ -514,7 +512,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
                     # Construct the final bulk insert statement
                     sql = f"""
                     INSERT INTO length(
-                        activity_id, timestamp, start_time, total_elapsed_time, 
+                        activity_id, timestamp, start_time,  
                         total_timer_time, total_strokes, avg_speed, swim_stroke
                     )
                     VALUES 
