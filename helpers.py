@@ -6,6 +6,7 @@ import pandas as pd
 import fitdecode
 import json
 import os
+import numpy as np
 
 # -------------------------
 # COLUMN DEFINITIONS
@@ -208,16 +209,9 @@ def get_fit_point_data(frame):
         return None
 
     data = {}
-    lat = frame.get_value("position_lat")
-    long = frame.get_value("position_long")
-    if lat is not None:
-        data["latitude"] = lat / DIVISOR
-    else:
-        data["latitude"] = lat
-    if long is not None:
-        data["longitude"] = long / DIVISOR
-    else:
-        data["longitude"] = long
+    # renaming cols
+    data["latitude"] = frame.get_value("position_lat")
+    data["longitude"] = frame.get_value("position_long")
 
     # NOTE: This requires lat and long to be the first items in the list. I also skip the lap column to manually define it.
     for field in record[3:]:
@@ -270,6 +264,7 @@ def get_dataframes(fname: str, activity_id=None):
     length_data = []
     intensity = []
     wsi = []
+    # just initially the intensity value for a lap. it may be present
     has_intensity = False
 
     with fitdecode.FitReader(fname) as fit_file:
@@ -285,10 +280,10 @@ def get_dataframes(fname: str, activity_id=None):
                 wsi.append(frame.get_value("wkt_step_index"))
 
             if frame.name == "record":
-                point = get_fit_point_data(frame)
-                if point:
-                    point["lap"] = lap_no
-                    record_data.append(point)
+                record_data.append(get_fit_point_data(frame))
+                # if point:
+                #     point["lap"] = lap_no
+                #     record_data.append(point)
 
             elif frame.name == "lap":
                 lap_obj = get_fit_lap_data(frame)
@@ -341,13 +336,25 @@ def get_dataframes(fname: str, activity_id=None):
     file_id_df = pd.DataFrame(file_id_data, columns=file_id)
     activity_df = pd.DataFrame(activity_data, columns=activity)
     session_df = pd.DataFrame(session_data, columns=session)
-    # NOTE: converting lat and long from ints into floats. used with the get other fit data method
-    for col in session[:5]:
-        mask = session_df[col].notnull()
-        session_df.loc[mask, col] = session_df.loc[mask, col] / DIVISOR
     length_df = pd.DataFrame(length_data, columns=length)
 
-    # Length frame indexing adjustments
+    # NOTE: converting lat and long from ints into floats.
+    lat_long_cols_session = session[:6]
+    session_df[lat_long_cols_session] = (
+        session_df[lat_long_cols_session].astype(float) / DIVISOR
+    )
+
+    lat_long_cols_record = ["latitude", "longitude"]
+    record_df[lat_long_cols_record] = (
+        record_df[lat_long_cols_record].astype(float) / DIVISOR
+    )
+
+    # NOTE: calculating lap numbers for record df based on if the distance has surpassed the cumulative distance from the lap df
+    if not record_df.empty:
+        lap_bounds = lap_df["total_distance"].cumsum().values
+        lap_indices = np.searchsorted(lap_bounds, record_df["distance"].values)
+        record_df["lap"] = lap_indices + 1
+
     length_df["message_index"] = length_df["message_index"] + 1
 
     for idx, row in length_df.iterrows():

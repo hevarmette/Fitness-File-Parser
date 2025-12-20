@@ -167,7 +167,7 @@ def insert_or_fallback(df, table):
 
 if __name__ == "__main__":
 
-    dir = "example activities/run/"
+    dir = "example activities/run/track/"
     file_extension = ".fit"
 
     after_date = datetime(2025, 8, 1).date()
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     ]
 
     filtered_files = [
-        f for f in files if after_date < extract_date_from_filename_connect(f) <= today
+        f for f in files if after_date < extract_date_from_filename_watch(f) <= today
     ]
 
     for file in filtered_files:
@@ -205,7 +205,6 @@ if __name__ == "__main__":
             activity_df, "activity", conn, return_id=True
         )
         new_activity_id = None
-        # new_activity_id = None
         if new_activity_id is None:
             # ------------------------------------------
             # DB FAILED → FALLBACK FOR *ALL* TABLES
