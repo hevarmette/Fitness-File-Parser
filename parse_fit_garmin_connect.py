@@ -1,7 +1,16 @@
 # parse_fit_garmin_connect.py
 # This file handles Garmin Connect files (summary JSON + FIT)
 # Uses old SQL writer + live database loader
-
+# FIX: for file id sql inserts
+# psql:file_id_inserts.sql:2639: ERROR:  date/time field value out of range: "125006144"
+# LINE 6: ... (3398469482, 'activity', 'garmin', 'connect', 1, '125006144...
+#                                                              ^
+# HINT:  Perhaps you need a different "datestyle" setting.
+# INSERT 0 1
+# psql:file_id_inserts.sql:2659: ERROR:  date/time field value out of range: "228417216"
+# LINE 6: ... (2545150295, 'activity', 'garmin', 'connect', 1, '228417216...
+#                                                              ^
+# HINT:  Perhaps you need a different "datestyle" setting.
 import os
 import toml
 import pandas as pd
@@ -419,7 +428,7 @@ if __name__ == "__main__":
 
     errors = []
 
-    for file in filtered_files:
+    for file in files:
         fname = dir + file
         json_file = fname.replace(file_extension, "_summary.json")
 
