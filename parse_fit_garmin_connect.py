@@ -11,6 +11,7 @@
 # LINE 6: ... (2545150295, 'activity', 'garmin', 'connect', 1, '228417216...
 #                                                              ^
 # HINT:  Perhaps you need a different "datestyle" setting.
+# FIX: varchar that contain NaN should be set to null in the before sending to postgres or writing to a file
 import os
 import toml
 import pandas as pd
