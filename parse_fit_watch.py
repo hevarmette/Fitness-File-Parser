@@ -1,6 +1,7 @@
 # parse_fit_watch.py
 # New pipeline: Watch-only FIT files (no JSON)
 # Uses newer SQL writer: write_sql_statement_to_file()
+# TODO: CHECK FOR NANS being sent back to the database!
 
 import os
 from os import listdir
@@ -71,10 +72,11 @@ def build_default_activity_name(session_df, activity_df):
     """
 
     # ---------- Activity Type ----------
-    try:
-        num_sessions = int(activity_df.get("num_sessions", [1])[0])
-    except:
-        num_sessions = 1
+    # Default to 1 (safe fallback)
+    num_sessions = 1
+
+    if "num_sessions" in activity_df.columns:
+        num_sessions = activity_df.iloc[0]["num_sessions"]
 
     if num_sessions > 1:
         sport_name = "Multisport"

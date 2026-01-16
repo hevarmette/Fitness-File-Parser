@@ -252,7 +252,8 @@ def get_fit_other_data(col, frame):
 
 def get_dataframes(fname: str, activity_id=None):
     """Reads a FIT file and produces DataFrames for:
-    lap, record, file_id, activity, session, length
+    lap, record, file_id, activity, session, length.
+    This only works for one activity at a time. Everything after creating the dataframes makes that assumption.
     """
 
     record_data = []
@@ -338,6 +339,19 @@ def get_dataframes(fname: str, activity_id=None):
     session_df = pd.DataFrame(session_data, columns=session)
     length_df = pd.DataFrame(length_data, columns=length)
 
+    if not file_id_df.empty and "time_created" in file_id_df.columns:
+        # 'errors="coerce"' turns invalid formats into NaT (Not a Time)
+        file_id_df["time_created"] = pd.to_datetime(
+            file_id_df["time_created"], errors="coerce", utc=True
+        )
+
+        if pd.isna(file_id_df.iloc[0]["time_created"]):
+            if not activity_df.empty and "timestamp" in activity_df.columns:
+                fallback_time = pd.to_datetime(
+                    activity_df.iloc[0]["timestamp"], utc=True
+                )
+                file_id_df.loc[0, "time_created"] = fallback_time
+
     # NOTE: converting lat and long from ints into floats.
     lat_long_cols_session = session[:6]
     session_df[lat_long_cols_session] = (
@@ -349,12 +363,13 @@ def get_dataframes(fname: str, activity_id=None):
         record_df[lat_long_cols_record].astype(float) / DIVISOR
     )
 
-    # NOTE: calculating lap numbers for record df based on if the distance has surpassed the cumulative distance from the lap df
+    # NOTE: calculating lap numbers for record df based if the distance has surpassed the cumulative distance for each lap from the lap df
     if not record_df.empty:
         lap_bounds = lap_df["total_distance"].cumsum().values
         lap_indices = np.searchsorted(lap_bounds, record_df["distance"].values)
         record_df["lap"] = lap_indices + 1
 
+    # Counting swimming laps to start at 1 and increment at active laps (not recovery laps)
     length_df["message_index"] = length_df["message_index"] + 1
 
     for idx, row in length_df.iterrows():
