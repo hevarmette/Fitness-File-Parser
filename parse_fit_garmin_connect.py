@@ -1,6 +1,7 @@
 # parse_fit_garmin_connect.py
 # This file handles Garmin Connect files (summary JSON + FIT)
-# FIX: file_id 'time_created' column sometimes is an invalid time
+# FIX: sometimes in file id the number column is NaN in database. might not care enough to fix
+# also total_strokes, total_fat_calories of session table
 import os
 import toml
 import pandas as pd
