@@ -1,13 +1,12 @@
 # parse_fit_garmin_connect.py
 # This file handles Garmin Connect files (summary JSON + FIT)
-# FIX: sometimes in file id the number column is NaN in database. might not care enough to fix
-# also total_strokes, total_fat_calories of session table
 import os
 import toml
 import pandas as pd
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime
+import math
 
 from helpers import (
     extract_date_from_filename_connect,
@@ -31,20 +30,21 @@ def load_dataframe_to_postgres(df, tabl):
     columns = list(df.columns)
     col_names = ", ".join(columns)
 
-    # Convert DataFrame to a list of row tuples
+    # Convert to list and replace NaN floats with None. Other methods of replacing NaN were not working. class float type nan
     rows = df.values.tolist()
+    rows = [
+        [None if isinstance(val, float) and math.isnan(val) else val for val in row]
+        for row in rows
+    ]
+
     if conn is not None:
         cursor = conn.cursor()
-
         try:
             # Bulk insert template
             insert_sql = f"INSERT INTO public.{tabl} ({col_names}) VALUES %s"
-
             execute_values(cursor, insert_sql, rows)
-
             conn.commit()
             cursor.close()
-
             print(f"[OK] Inserted {len(rows)} rows into {tabl}")
             return True
 
