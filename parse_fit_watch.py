@@ -3,7 +3,6 @@
 # Uses newer SQL writer: write_sql_statement_to_file()
 # TODO: CHECK FOR NANS being sent back to the database!
 
-import os
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime
@@ -251,6 +250,4 @@ if __name__ == "__main__":
             insert_or_fallback(session_df, "session")
             insert_or_fallback(length_df, "length")
 
-        # TODO:
-        # record data lap column looks like total laps + 1 for new watch for all records? gonna have to determine laps based on distances compared to lap def
         # NOTE: session parser is using float definitions right now
