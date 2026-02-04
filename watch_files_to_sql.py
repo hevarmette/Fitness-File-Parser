@@ -173,7 +173,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None):
 
                     # Construct the final bulk insert statement
                     sql = f"""
-                    INSERT INTO public.session(
+                    INSERT INTO session(
                         activity_id, timestamp, start_time, start_position_lat, 
                         start_position_long, total_elapsed_time, total_timer_time, 
                         total_distance, total_strokes, nec_lat, nec_long, swc_lat, 
