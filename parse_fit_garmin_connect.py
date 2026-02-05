@@ -75,6 +75,7 @@ def insert_or_fallback(df, table, just_write_sql_file, _conn):
 if __name__ == "__main__":
 
     only_write_file = True
+    conn = None
     if not only_write_file:
         import psycopg2
         from psycopg2.extras import execute_values

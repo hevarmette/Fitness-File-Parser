@@ -1,0 +1,22 @@
+# Core data processing
+pandas
+numpy
+
+# FIT file parsing
+fitdecode
+
+# PostgreSQL database
+psycopg2-binary
+
+# Configuration
+toml
+
+# HTTP requests for geocoding
+requests
+
+# XML parsing (for GPX/TCX files)
+lxml
+gpxpy
+
+# Date parsing
+python-dateutil
