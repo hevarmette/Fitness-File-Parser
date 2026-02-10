@@ -75,7 +75,6 @@ def insert_or_fallback(df, table, just_write_sql_file, _conn):
 if __name__ == "__main__":
 
     only_write_file = True
-    conn = None
     if not only_write_file:
         import psycopg2
         from psycopg2.extras import execute_values
@@ -83,8 +82,10 @@ if __name__ == "__main__":
         config = toml.load("secrets.toml")
         db_config = config["postgresql"]
         conn = psycopg2.connect(**db_config)
+    else:
+        conn = None
 
-    dir = "/home/heath/Documents/Updated Garmin/"
+    dir = "/home/varmetteh/Github/Fitness-File-Parser/example activities/cycling/"
     file_extension = ".fit"
 
     after_date = datetime(2024, 12, 31).date()
@@ -109,19 +110,21 @@ if __name__ == "__main__":
         activity_id = get_user_activity_details(fname)
 
         try:
+            # this will only fail if activity_df fails
             lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
                 get_dataframes(fname, activity_id)
             )
         except Exception as e:
-            print(f"[ERROR] getting dataframes for {activity_id} error: {e}")
+            print(f"[ERROR] Skipping file {activity_id}. Reason: {e}")
             log_file_path = os.path.join(os.path.dirname(__file__), "errors.txt")
             with open(log_file_path, "a") as log_file:
-                log_file.write(f"\n{activity_id}")
+                log_file.write(f"\n{activity_id} - SKIPPED FILE: {e}")
+            continue  # move to next file
 
         json_info_df = pd.DataFrame(get_json_info(json_file), index=[0])
         activity_df_fixed = pd.concat([activity_df, json_info_df], axis=1)
 
-        print(f"Loading activity {activity_id}")
+        print(f"Loading activity {activity_id} . . .")
         insert_or_fallback(activity_df_fixed, "activity", only_write_file, conn)
         insert_or_fallback(file_id_df, "file_id", only_write_file, conn)
         insert_or_fallback(lap_df, "lap", only_write_file, conn)

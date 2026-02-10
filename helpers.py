@@ -245,6 +245,20 @@ def get_fit_other_data(col, frame):
     return data
 
 
+def create_safe_df(data, columns, df_name, activity_id):
+    try:
+        return pd.DataFrame(data, columns=columns)
+    except Exception as e:
+        # Log the specific failure immediately
+        print(f"[WARNING] {df_name} failed for {activity_id}: {e}")
+        log_path = os.path.join(os.path.dirname(__file__), "errors.txt")
+        with open(log_path, "a") as f:
+            f.write(f"\n{activity_id} - {df_name} failed: {e}")
+
+        # Return an empty DataFrame so the variable exists
+        return pd.DataFrame()
+
+
 # -------------------------
 # MAIN DATAFRAME CONSTRUCTOR
 # -------------------------
@@ -281,7 +295,10 @@ def get_dataframes(fname: str, activity_id=None):
                 wsi.append(frame.get_value("wkt_step_index"))
 
             if frame.name == "record":
-                record_data.append(get_fit_point_data(frame))
+                record_point = get_fit_point_data(frame)
+                # in rare cases, a record might return No data which will cause issues when making the record pandas dataframe, so we check before keeping the data
+                if record_point is not None:
+                    record_data.append(record_point)
                 # if point:
                 #     point["lap"] = lap_no
                 #     record_data.append(point)
@@ -305,7 +322,7 @@ def get_dataframes(fname: str, activity_id=None):
                 length_data.append(get_fit_other_data(length, frame))
 
     # Build DataFrames
-    lap_df = pd.DataFrame(lap_data, columns=lap)
+    lap_df = create_safe_df(lap_data, lap, "lap_df", activity_id)
 
     # Handle intensity matching
     if has_intensity:
@@ -333,11 +350,23 @@ def get_dataframes(fname: str, activity_id=None):
         else:
             lap_df["intensity"] = [None] * len(lap_df)
 
-    record_df = pd.DataFrame(record_data, columns=record)
-    file_id_df = pd.DataFrame(file_id_data, columns=file_id)
-    activity_df = pd.DataFrame(activity_data, columns=activity)
-    session_df = pd.DataFrame(session_data, columns=session)
-    length_df = pd.DataFrame(length_data, columns=length)
+    # stop if activity df is failed
+    try:
+        activity_df = pd.DataFrame(activity_data, columns=activity)
+    except Exception as e:
+        raise ValueError(f"CRITICAL: activity_df failed: {e}")
+    record_df = create_safe_df(
+        record_data, record, "record_df", activity_id=activity_id
+    )
+    file_id_df = create_safe_df(
+        file_id_data, file_id, "file_id_df", activity_id=activity_id
+    )
+    session_df = create_safe_df(
+        session_data, session, "session_df", activity_id=activity_id
+    )
+    length_df = create_safe_df(
+        length_data, length, "length_df", activity_id=activity_id
+    )
 
     if not file_id_df.empty and "time_created" in file_id_df.columns:
         # 'errors="coerce"' turns invalid formats into NaT (Not a Time)
