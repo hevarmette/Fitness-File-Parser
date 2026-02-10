@@ -1,0 +1,136 @@
+{
+    "activityId": 18911339697,
+    "activityUUID": {
+        "uuid": "6065d1bf-e247-4efd-89e1-243fba20a66f"
+    },
+    "activityName": "Indoor Cycling",
+    "userProfileId": 65683115,
+    "isMultiSportParent": false,
+    "activityTypeDTO": {
+        "typeId": 25,
+        "typeKey": "indoor_cycling",
+        "parentTypeId": 2,
+        "isHidden": false,
+        "restricted": false,
+        "trimmable": true
+    },
+    "eventTypeDTO": {
+        "typeId": 9,
+        "typeKey": "uncategorized",
+        "sortOrder": 10
+    },
+    "accessControlRuleDTO": {
+        "typeId": 1,
+        "typeKey": "public"
+    },
+    "timeZoneUnitDTO": {
+        "unitId": 152,
+        "unitKey": "America/Chicago",
+        "factor": 0.0,
+        "timeZone": "America/Chicago"
+    },
+    "metadataDTO": {
+        "isOriginal": true,
+        "deviceApplicationInstallationId": 916451,
+        "agentApplicationInstallationId": null,
+        "agentString": null,
+        "fileFormat": {
+            "formatId": 7,
+            "formatKey": "fit"
+        },
+        "associatedCourseId": null,
+        "lastUpdateDate": "2025-04-23T12:21:28.0",
+        "uploadedDate": "2025-04-23T12:21:28.0",
+        "videoUrl": null,
+        "hasPolyline": false,
+        "hasChartData": true,
+        "hasHrTimeInZones": false,
+        "hasPowerTimeInZones": true,
+        "userInfoDto": {
+            "userProfilePk": 65683115,
+            "displayname": "df35b80f-9c9f-408b-a02f-31b3a4f9be86",
+            "fullname": "Heath Varmette",
+            "profileImageUrlLarge": "https://s3.amazonaws.com/garmin-connect-prod/profile_images/fe9aa25e-af01-448e-a552-797b3703a42d-65683115.png",
+            "profileImageUrlMedium": "https://s3.amazonaws.com/garmin-connect-prod/profile_images/64b32e8f-337a-4a99-8df2-3fb1c6fd2824-65683115.png",
+            "profileImageUrlSmall": "https://s3.amazonaws.com/garmin-connect-prod/profile_images/ea2df297-bda7-4943-b548-6e6e3810df02-65683115.png",
+            "userPro": false
+        },
+        "childIds": [],
+        "childActivityTypes": [],
+        "sensors": [
+            {
+                "manufacturer": "TACX",
+                "sku": "006-B4274-00",
+                "fitProductNumber": 4274,
+                "sourceType": "ANTPLUS",
+                "antplusDeviceType": "FITNESS_EQUIPMENT",
+                "softwareVersion": 4.5
+            }
+        ],
+        "activityImages": [],
+        "manufacturer": "GARMIN",
+        "diveNumber": null,
+        "lapCount": 1,
+        "associatedWorkoutId": null,
+        "isAtpActivity": null,
+        "deviceMetaDataDTO": {
+            "deviceId": "3374946437",
+            "deviceTypePk": 35336,
+            "deviceVersionPk": 916451
+        },
+        "hasIntensityIntervals": false,
+        "hasSplits": false,
+        "eBikeMaxAssistModes": null,
+        "eBikeBatteryUsage": null,
+        "eBikeBatteryRemaining": null,
+        "eBikeAssistModeInfoDTOList": null,
+        "hasRunPowerWindData": null,
+        "calendarEventInfo": null,
+        "groupRideUUID": null,
+        "hasHeatMap": false,
+        "elevationCorrected": false,
+        "manualActivity": false,
+        "runPowerWindDataEnabled": null,
+        "autoCalcCalories": false,
+        "favorite": false,
+        "trimmed": false,
+        "gcj02": false,
+        "personalRecord": false
+    },
+    "summaryDTO": {
+        "startTimeLocal": "2025-04-23T06:21:12.0",
+        "startTimeGMT": "2025-04-23T11:21:12.0",
+        "distance": 20748.68,
+        "duration": 3601.127,
+        "movingDuration": 3563.0,
+        "elapsedDuration": 3601.127,
+        "averageSpeed": 5.76200008392334,
+        "averageMovingSpeed": 5.823373473898401,
+        "maxSpeed": 6.354000091552734,
+        "calories": 735.0,
+        "bmrCalories": 94.0,
+        "averageBikeCadence": 76.0,
+        "maxBikeCadence": 83.0,
+        "averageTemperature": 20.0,
+        "maxTemperature": 21.0,
+        "minTemperature": 19.0,
+        "averagePower": 178.0,
+        "maxPower": 209.0,
+        "maxPowerTwentyMinutes": 183.75166666666667,
+        "minPower": 0.0,
+        "normalizedPower": 180.0,
+        "functionalThresholdPower": 200.0,
+        "totalWork": 152.98256332905333,
+        "trainingEffect": 2.0,
+        "anaerobicTrainingEffect": 0.0,
+        "aerobicTrainingEffectMessage": "MINOR_AEROBIC_BENEFIT_0",
+        "anaerobicTrainingEffectMessage": "NO_ANAEROBIC_BENEFIT_0",
+        "trainingStressScore": 80.19999694824219,
+        "intensityFactor": 0.8989999890327454,
+        "totalNumberOfStrokes": 4509,
+        "waterEstimated": 560.0,
+        "trainingEffectLabel": "RECOVERY",
+        "activityTrainingLoad": 24.350753784179688,
+        "minActivityLapDuration": 3601.127
+    }
+}
