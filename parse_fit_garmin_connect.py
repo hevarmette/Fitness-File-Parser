@@ -85,7 +85,7 @@ if __name__ == "__main__":
     else:
         conn = None
 
-    dir = "/home/varmetteh/Github/Fitness-File-Parser/example activities/cycling/"
+    dir = "/home/heath/Documents/Updated Garmin/"
     file_extension = ".fit"
 
     after_date = datetime(2024, 12, 31).date()
