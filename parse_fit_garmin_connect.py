@@ -1,3 +1,4 @@
+# FIX: timestamp col in acitivty with no dates and local timestamp column in future.
 # parse_fit_garmin_connect.py
 # This file handles Garmin Connect files (summary JSON + FIT)
 import os
@@ -85,7 +86,7 @@ if __name__ == "__main__":
     else:
         conn = None
 
-    dir = "/home/heath/Documents/Updated Garmin/"
+    dir = "/home/heath/Documents/Garmin/"
     file_extension = ".fit"
 
     after_date = datetime(2024, 12, 31).date()
