@@ -405,8 +405,16 @@ def get_dataframes(fname: str, activity_id=None):
         if row["length_type"] != "active":
             length_df.loc[idx:, "message_index"] -= 1
 
+    # This should only be true for files from garmin connect.
     if activity_id:
         for df in (lap_df, record_df, file_id_df, activity_df, session_df, length_df):
             df["activity_id"] = activity_id
+
+    # it seems some manual activities from garmin connect will be missing some timestamps,
+    # so we will try filling any missing timestamps from the activity table with timestamps
+    # from the session table
+    if pd.isna(activity_df["timestamp"]).any():
+        earliest_time = session_df["timestamp"].min()
+        activity_df["timestamp"] = activity_df["timestamp"].fillna(earliest_time)
 
     return lap_df, record_df, file_id_df, activity_df, session_df, length_df
