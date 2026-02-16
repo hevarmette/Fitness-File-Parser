@@ -1,4 +1,3 @@
-# FIX: timestamp col in acitivty with no dates and local timestamp column in future.
 # parse_fit_garmin_connect.py
 # This file handles Garmin Connect files (summary JSON + FIT)
 import os
@@ -18,11 +17,19 @@ from helpers import (
 
 from watch_files_to_sql import write_sql_statement_to_file
 
-pd.set_option("display.max_columns", None)
+# pd.set_option("display.max_columns", None)
 
 
 def load_dataframe_to_postgres(df, tabl, _conn):
-    """Load data to postgres"""
+    """
+    This will send decoded files directly to postgresql. I don't like this option as much because
+    postgres will send back NaN and NaT if missing, which other db engines may not support. If
+    you don't want to use postgres anyway.
+
+    :param df pd.DataFrame: data of table to upload
+    :param tabl string: table name of table for insertion
+    :param _conn connection: postgres connection
+    """
     if df.empty:
         print(f"[SKIP] {tabl}: dataframe is empty.")
         return True
@@ -57,6 +64,15 @@ def load_dataframe_to_postgres(df, tabl, _conn):
 
 
 def insert_or_fallback(df, table, just_write_sql_file, _conn):
+    """
+    Directly inserts data to database or it will simply write a file to local if anything fails
+    are if the flag is to only write the file
+
+    :param df pd.DataFrame: data to write
+    :param table string: table name to write to
+    :param just_write_sql_file bool: flag to only write the file
+    :param _conn connection: postgres connection
+    """
     if just_write_sql_file:
         write_sql_statement_to_file(df, table)
     else:
@@ -74,9 +90,9 @@ def insert_or_fallback(df, table, just_write_sql_file, _conn):
 # ------------------------------------
 
 if __name__ == "__main__":
-
-    only_write_file = True
-    if not only_write_file:
+    # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
+    ONLY_WRITE_FILE = True
+    if not ONLY_WRITE_FILE:
         import psycopg2
         from psycopg2.extras import execute_values
 
@@ -86,9 +102,11 @@ if __name__ == "__main__":
     else:
         conn = None
 
+    # Directory to read .fit and .json_summary files from
     dir = "/home/heath/Documents/Garmin/"
     file_extension = ".fit"
 
+    # Optional to only insert files between a certain date
     after_date = datetime(2026, 2, 3).date()
     today = datetime.now().date()
 
@@ -104,6 +122,7 @@ if __name__ == "__main__":
 
     errors = []
 
+    # this can be changed to the files list to insert every activity
     for file in filtered_files:
         fname = dir + file
         json_file = fname.replace(file_extension, "_summary.json")
@@ -116,20 +135,25 @@ if __name__ == "__main__":
                 get_dataframes(fname, activity_id)
             )
         except Exception as e:
+            # if getting an activity fails, then we skip the rest of the information,
+            # because activity is the main table with the primary key, activity_id
+            # we want to save errors to a log file and continue with other activities
             print(f"[ERROR] Skipping file {activity_id}. Reason: {e}")
             log_file_path = os.path.join(os.path.dirname(__file__), "errors.txt")
             with open(log_file_path, "a") as log_file:
                 log_file.write(f"\n{activity_id} - SKIPPED FILE: {e}")
             continue  # move to next file
 
+        # Gets metadata from json file. Such as activity name, description, and adjusted metrics
         json_info_df = pd.DataFrame(get_json_info(json_file), index=[0])
         activity_df_fixed = pd.concat([activity_df, json_info_df], axis=1)
 
+        # save to db or write to file
         print(f"Loading activity {activity_id} . . .")
-        insert_or_fallback(activity_df_fixed, "activity", only_write_file, conn)
-        insert_or_fallback(file_id_df, "file_id", only_write_file, conn)
-        insert_or_fallback(lap_df, "lap", only_write_file, conn)
-        insert_or_fallback(record_df, "record", only_write_file, conn)
-        insert_or_fallback(session_df, "session", only_write_file, conn)
-        insert_or_fallback(length_df, "length", only_write_file, conn)
+        insert_or_fallback(activity_df_fixed, "activity", ONLY_WRITE_FILE, conn)
+        insert_or_fallback(file_id_df, "file_id", ONLY_WRITE_FILE, conn)
+        insert_or_fallback(lap_df, "lap", ONLY_WRITE_FILE, conn)
+        insert_or_fallback(record_df, "record", ONLY_WRITE_FILE, conn)
+        insert_or_fallback(session_df, "session", ONLY_WRITE_FILE, conn)
+        insert_or_fallback(length_df, "length", ONLY_WRITE_FILE, conn)
     print("Done")

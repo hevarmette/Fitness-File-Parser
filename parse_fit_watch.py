@@ -11,7 +11,6 @@ import pandas as pd
 
 from helpers import (
     extract_date_from_filename_watch,
-    extract_date_from_filename_connect,
     get_dataframes,
 )
 from watch_files_to_sql import write_sql_statement_to_file
@@ -19,18 +18,30 @@ import requests
 import time
 
 import toml
-import psycopg2
-from psycopg2.extras import execute_values
+import psycopg
 
+# -------------------------
+# CONFIGURATION & DB CONNECTION
+# -------------------------
 config = toml.load("secrets.toml")
 db_config = config["postgresql"]
-conn = psycopg2.connect(**db_config)
+conn = psycopg.connect(**db_config)
 
 
 def reverse_geocode(lat, lon):
     """
     Reverse geocode using OSM Nominatim.
-    Returns (city, county)
+    Returns (city, county).
+
+    This function respects the OSM fair use policy by enforcing a 1-second delay.
+
+    Args:
+        lat (float): Latitude.
+        lon (float): Longitude.
+
+    Returns:
+        tuple: (city, county) as strings, or (None, None) if the request fails
+               or no address is found.
     """
 
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -64,10 +75,19 @@ def reverse_geocode(lat, lon):
 
 def build_default_activity_name(session_df, activity_df):
     """
-    Generates default activity name:
+    Generates default activity name based on location and sport type.
+
+    Logic:
     - "{City} {Sport}"
     - Or "{County} {Sport}"
     - Sport replaced with 'Multisport' if activity_df.num_sessions > 1
+
+    Args:
+        session_df (pd.DataFrame): DataFrame containing session data (lat/lon/sport).
+        activity_df (pd.DataFrame): DataFrame containing activity summary (num_sessions).
+
+    Returns:
+        str: A formatted string for the activity name (e.g., "London Running").
     """
 
     # ---------- Activity Type ----------
@@ -106,53 +126,84 @@ def build_default_activity_name(session_df, activity_df):
 def db_insert_dataframe(df, table, conn, return_id=False):
     """
     Inserts a dataframe into Postgres.
-    - Uses parameterized INSERT
-    - If return_id=True, returns the SERIAL id from the INSERT
-    - On failure, returns None and caller should fall back to file output
+
+    Features:
+    - Uses parameterized INSERT to prevent injection.
+    - Handles single-row inserts with `RETURNING activity_id`.
+    - Handles bulk inserts using `execute_values`.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to insert.
+        table (str): The target SQL table name.
+        conn (psycopg.connection): The database connection object.
+        return_id (bool, optional): If True, returns the generated serial ID
+                                    (only for single row inserts). Defaults to False.
+
+    Returns:
+        int | bool | None:
+            - The new ID (int) if return_id=True and success.
+            - True if bulk insert success.
+            - None on failure or empty DataFrame.
     """
     if df.empty:
         return None
 
-    # This shouldn't be necessary, but is a fail safe to ensure inserts as sent as NULLs and no errors sending NaNs
+    # Replace NaNs with None for SQL NULLs
     df = df.where(pd.notna(df), None)
 
-    cursor = conn.cursor()
-
+    # Convert to list of tuples
+    values = [tuple(x) for x in df.values]
     cols = list(df.columns)
     col_names = ", ".join(cols)
+
     placeholders = ", ".join(["%s"] * len(cols))
-    values = df.values.tolist()
 
     try:
-        if return_id:
-            # only valid when inserting a single row
-            sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) RETURNING activity_id;"
-            cursor.execute(sql, values[0])
-            new_id = cursor.fetchone()[0]
-            conn.commit()
-            cursor.close()
-            return new_id
+        with conn.cursor() as cursor:
+            if return_id:
+                # Single row insert with return
+                sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) RETURNING activity_id;"
+                cursor.execute(sql, values[0])
+                new_id = cursor.fetchone()[0]
+                conn.commit()
+                return new_id
 
-        else:
-            sql = f"INSERT INTO {table} ({col_names}) VALUES %s"
-            execute_values(cursor, sql, values)
-            conn.commit()
-            cursor.close()
-            return True
-        print(f"Inserted row(s) for {table}")
+            else:
+                # BULK INSERT:
+                # Psycopg 3's executemany is optimized and pipelines requests.
+                # It is much faster than psycopg2's executemany.
+                sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"
+                cursor.executemany(sql, values)
+                conn.commit()
+                return True
 
     except Exception as e:
         print(f"[DB ERROR] Failed inserting into {table}: {e}")
-        cursor.close()
-        return None  # fallback will be triggered by caller
+        return None
 
 
 def apply_activity_id_to_dfs(activity_id, dfs):
+    """
+    Assigns the given activity_id to a list of DataFrames.
+
+    Args:
+        activity_id (int): The activity ID to assign.
+        dfs (list): A list of pandas DataFrames to update.
+    """
     for df in dfs:
         df["activity_id"] = activity_id
 
 
 def insert_or_fallback(df, table):
+    """
+    Attempts to insert a DataFrame into the database.
+    If the database insert fails (returns None), it falls back to writing
+    an SQL file to disk.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to insert.
+        table (str): The target table name.
+    """
     if not df.empty:
         ok = db_insert_dataframe(df, table, conn)
         if ok is None:
@@ -171,25 +222,31 @@ if __name__ == "__main__":
     dir = "example activities/run/track/"
     file_extension = ".fit"
 
+    # Define date range for processing
     after_date = datetime(2025, 8, 1).date()
     today = datetime.now().date()
 
+    # Get all .fit files in the directory
     files = [
         f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
     ]
 
+    # Filter files based on the date range extracted from filename
     filtered_files = [
         f for f in files if after_date < extract_date_from_filename_watch(f) <= today
     ]
 
+    # Process each file individually
     for file in filtered_files:
         fname = dir + file
 
-        # IMPORTANT: placeholder activity_id (you requested TODO notes preserved)
+        # Parse FIT file into DataFrames
         lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
             get_dataframes(fname)
         )
 
+        # Pre-process Activity DF:
+        # Aggregate totals from Session DF and generate a descriptive name
         # the following only works with one activity per activity_df and therefore one activity in session_df
         activity_df.loc[0, "adjusted_distance"] = session_df["total_distance"].sum()
         activity_df.loc[0, "adjusted_duration"] = session_df["total_timer_time"].sum()
@@ -200,16 +257,23 @@ if __name__ == "__main__":
         # ---------------------------
         # Insert ACTIVITY first
         # ---------------------------
+        # We insert Activity first to generate the Foreign Key (activity_id) needed for other tables
         print("Inserting activity...")
 
         new_activity_id = db_insert_dataframe(
             activity_df, "activity", conn, return_id=True
         )
+
+        # NOTE: This line forces the fallback logic regardless of success.
         new_activity_id = None
+
         if new_activity_id is None:
             # ------------------------------------------
             # DB FAILED → FALLBACK FOR *ALL* TABLES
             # ------------------------------------------
+            # If the main activity cannot be created in the DB, we cannot insert
+            # child records (laps, records, etc.) due to FK constraints.
+            # We dump everything to SQL files instead.
             print("Activity insert failed. Falling back to SQL files for all tables...")
 
             # use 0 or pre-existing ID for file writer
@@ -236,6 +300,7 @@ if __name__ == "__main__":
             # ---------------------------
             # Apply activity_id
             # ---------------------------
+            # If Activity insert succeeded, propagate the new ID to all child DataFrames
             apply_activity_id_to_dfs(
                 new_activity_id,
                 [file_id_df, lap_df, record_df, session_df, length_df],
@@ -244,10 +309,10 @@ if __name__ == "__main__":
             # ---------------------------
             # Insert OTHER tables
             # ---------------------------
+            # Attempt DB insert for children, falling back to SQL file individually if needed
             insert_or_fallback(file_id_df, "file_id")
             insert_or_fallback(lap_df, "lap")
             insert_or_fallback(record_df, "record")
             insert_or_fallback(session_df, "session")
             insert_or_fallback(length_df, "length")
-
-        # NOTE: session parser is using float definitions right now
+            # NOTE: session parser is using float definitions right now
