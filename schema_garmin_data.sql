@@ -27,7 +27,7 @@ total_timer_time real
 DONE IMPLEMENTING THE ABOVE
  */
 -- Create sequences
-/*CREATE SEQUENCE public.file_id_record_id_seq
+/*CREATE SEQUENCE file_id_record_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -35,7 +35,7 @@ DONE IMPLEMENTING THE ABOVE
     NO MAXVALUE
     CACHE 1;
 
-CREATE SEQUENCE public.lap_lap_id_seq
+CREATE SEQUENCE lap_lap_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -43,7 +43,7 @@ CREATE SEQUENCE public.lap_lap_id_seq
     NO MAXVALUE
     CACHE 1;
 
-CREATE SEQUENCE public.record_record_id_seq
+CREATE SEQUENCE record_record_id_seq
     AS bigint
     START WITH 1
     INCREMENT BY 1
@@ -51,7 +51,7 @@ CREATE SEQUENCE public.record_record_id_seq
     NO MAXVALUE
     CACHE 1;
 
-CREATE SEQUENCE public.session_session_id_seq
+CREATE SEQUENCE session_session_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -60,7 +60,7 @@ CREATE SEQUENCE public.session_session_id_seq
     CACHE 1;
     
 
-CREATE SEQUENCE public.length_length_id_seq
+CREATE SEQUENCE length_length_id_seq
   AS integer
   START WITH 1
   INCREMENT BY 1
@@ -70,8 +70,8 @@ CREATE SEQUENCE public.length_length_id_seq
 */
 
 -- Create tables with default values from sequences
-CREATE TABLE public.activity (
-    --activity_id bigint DEFAULT nextval('public.lap_lap_id_seq'::regclass) NOT NULL,
+CREATE TABLE activity (
+    --activity_id bigint DEFAULT nextval('lap_lap_id_seq'::regclass) NOT NULL,
     activity_id bigserial NOT NULL,
     "timestamp" timestamp with time zone,
     /*
@@ -96,8 +96,8 @@ CREATE TABLE public.activity (
     PRIMARY KEY (activity_id)
 );
 
-CREATE TABLE public.file_id (
-    --file_id integer DEFAULT nextval('public.record_record_id_seq'::regclass) NOT NULL,
+CREATE TABLE file_id (
+    --file_id integer DEFAULT nextval('record_record_id_seq'::regclass) NOT NULL,
     file_id serial NOT NULL,
     activity_id bigint NOT NULL,
     serial_number bigint,
@@ -107,11 +107,11 @@ CREATE TABLE public.file_id (
     type character varying(50),
     product character varying(50),
     PRIMARY KEY (file_id),
-    CONSTRAINT fk_file_id_activity FOREIGN KEY (activity_id) REFERENCES public.activity(activity_id)
+    CONSTRAINT fk_file_id_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );
 
-CREATE TABLE public.lap (
-    --lap_id integer DEFAULT nextval('public.lap_lap_id_seq'::regclass) NOT NULL,
+CREATE TABLE lap (
+    --lap_id integer DEFAULT nextval('lap_lap_id_seq'::regclass) NOT NULL,
     lap_id serial NOT NULL,
     activity_id bigint NOT NULL,
     start_time timestamp with time zone,
@@ -130,11 +130,11 @@ CREATE TABLE public.lap (
     avg_heart_rate smallint,
     intensity VARCHAR(20),
     PRIMARY KEY (lap_id),
-    CONSTRAINT fk_lap_activity FOREIGN KEY (activity_id) REFERENCES public.activity(activity_id)
+    CONSTRAINT fk_lap_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );
 
-CREATE TABLE public.record (
-    --record_id bigint DEFAULT nextval('public.record_record_id_seq'::regclass) NOT NULL,
+CREATE TABLE record (
+    --record_id bigint DEFAULT nextval('record_record_id_seq'::regclass) NOT NULL,
     record_id bigserial NOT NULL, 
     activity_id bigint NOT NULL,
     latitude double precision,
@@ -148,11 +148,11 @@ CREATE TABLE public.record (
     enhanced_speed real,
     distance real,
     PRIMARY KEY (record_id),
-    CONSTRAINT fk_record_activity FOREIGN KEY (activity_id) REFERENCES public.activity(activity_id)
+    CONSTRAINT fk_record_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );
 
-CREATE TABLE public.session (
-    --session_id integer DEFAULT nextval('public.session_session_id_seq'::regclass) NOT NULL,
+CREATE TABLE session (
+    --session_id integer DEFAULT nextval('session_session_id_seq'::regclass) NOT NULL,
     session_id serial NOT NULL,
     activity_id bigint NOT NULL,
     "timestamp" timestamp with time zone,
@@ -194,11 +194,11 @@ CREATE TABLE public.session (
     pool_length smallint,
     pool_length_unit character varying(20),
     PRIMARY KEY (session_id),
-    CONSTRAINT fk_session_activity FOREIGN KEY (activity_id) REFERENCES public.activity(activity_id)
+    CONSTRAINT fk_session_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );
 
-CREATE TABLE public.length (
-  --length_id integer DEFAULT nextval('public.length_length_id_seq'::regclass) NOT NULL,
+CREATE TABLE length (
+  --length_id integer DEFAULT nextval('length_length_id_seq'::regclass) NOT NULL,
   length_id serial NOT NULL,
   activity_id bigint NOT NULL,
   "timestamp" timestamp with time zone,
@@ -210,5 +210,5 @@ CREATE TABLE public.length (
   swim_stroke varchar(15),
   length_type varchar(15),
   PRIMARY KEY (length_id),
-  CONSTRAINT fk_length_activity FOREIGN KEY (activity_id) REFERENCES public.activity(activity_id)
+  CONSTRAINT fk_length_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );

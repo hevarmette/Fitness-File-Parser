@@ -68,7 +68,7 @@ BEGIN
             distance,
             LAG(timestamp) OVER (ORDER BY timestamp) AS start_timestamp,
             LAG(distance) OVER (ORDER BY timestamp) AS start_distance
-        FROM public.record
+        FROM record
         WHERE activity_id = activity
     ),
     intervals AS (
@@ -90,4 +90,4 @@ BEGIN
     ORDER BY i.start_time;
 END;
 $$ LANGUAGE plpgsql;
-SELECT * FROM shortest_duration_for_distance(10000, 10368363529);
+-- SELECT * FROM shortest_duration_for_distance(10000, 10368363529);

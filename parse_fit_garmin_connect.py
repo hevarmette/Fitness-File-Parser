@@ -89,7 +89,7 @@ if __name__ == "__main__":
     dir = "/home/heath/Documents/Garmin/"
     file_extension = ".fit"
 
-    after_date = datetime(2024, 12, 31).date()
+    after_date = datetime(2026, 2, 3).date()
     today = datetime.now().date()
 
     files = [
@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
     errors = []
 
-    for file in files:
+    for file in filtered_files:
         fname = dir + file
         json_file = fname.replace(file_extension, "_summary.json")
 
