@@ -238,6 +238,7 @@ if __name__ == "__main__":
     ]
 
     # Process each file individually
+    fallback_id = 1000000000
     for file in filtered_files:
         fname = dir + file
 
@@ -277,8 +278,7 @@ if __name__ == "__main__":
             # We dump everything to SQL files instead.
             print("Activity insert failed. Falling back to SQL files for all tables...")
 
-            # use 0. Therefore, cannot use these files for the db yet
-            fallback_id = 0
+            # Use fallback id from before the for loop. Therefore, cannot use these files for the db yet
             activity_df["activity_id"] = fallback_id
 
             # ensure other tables also use 0
@@ -296,6 +296,7 @@ if __name__ == "__main__":
             write_sql_statement_to_file(length_df, "length")
 
             print("Skipped DB inserts for this file due to activity failure.\n")
+            fallback_id += 1
 
         else:
             # ---------------------------
