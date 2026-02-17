@@ -38,26 +38,28 @@ def load_dataframe_to_postgres(df, tabl, _conn):
     columns = list(df.columns)
     col_names = ", ".join(columns)
 
-    # Convert to list and replace NaN floats with None. Other methods of replacing NaN were not working. class float type nan
+    # Generate placeholders for psycopg (e.g., "%s, %s, %s")
+    placeholders = ", ".join(["%s"] * len(columns))
+
+    # Convert to list and replace NaN floats with None.
     rows = df.values.tolist()
     rows = [
         [None if isinstance(val, float) and math.isnan(val) else val for val in row]
         for row in rows
     ]
 
-    cursor = _conn.cursor()
     try:
-        # Bulk insert template
-        insert_sql = f"INSERT INTO {tabl} ({col_names}) VALUES %s"
-        execute_values(cursor, insert_sql, rows)
-        _conn.commit()
-        cursor.close()
-        print(f"[OK] Inserted {len(rows)} rows into {tabl}")
-        return True
+        with _conn.cursor() as cursor:
+            insert_sql = f"INSERT INTO {tabl} ({col_names}) VALUES ({placeholders})"
+
+            cursor.executemany(insert_sql, rows)
+
+            _conn.commit()
+            print(f"[OK] Inserted {len(rows)} rows into {tabl}")
+            return True
 
     except Exception as e:
         _conn.rollback()
-        cursor.close()
         print(f"[ERROR] Inserting into {tabl}: {e}")
         # print(df.head(20))
         return False
@@ -93,12 +95,11 @@ if __name__ == "__main__":
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
     ONLY_WRITE_FILE = True
     if not ONLY_WRITE_FILE:
-        import psycopg2
-        from psycopg2.extras import execute_values
+        import psycopg
 
         config = toml.load("secrets.toml")
         db_config = config["postgresql"]
-        conn = psycopg2.connect(**db_config)
+        conn = psycopg.connect(**db_config)
     else:
         conn = None
 
