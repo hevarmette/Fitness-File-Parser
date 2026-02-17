@@ -169,9 +169,6 @@ def db_insert_dataframe(df, table, conn, return_id=False):
                 return new_id
 
             else:
-                # BULK INSERT:
-                # Psycopg 3's executemany is optimized and pipelines requests.
-                # It is much faster than psycopg2's executemany.
                 sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"
                 cursor.executemany(sql, values)
                 conn.commit()
@@ -219,11 +216,11 @@ def insert_or_fallback(df, table):
 
 if __name__ == "__main__":
 
-    dir = "example activities/run/track/"
+    dir = "example activities/Activity/"
     file_extension = ".fit"
 
     # Define date range for processing
-    after_date = datetime(2025, 8, 1).date()
+    after_date = datetime(2026, 2, 1).date()
     today = datetime.now().date()
 
     # Get all .fit files in the directory
@@ -276,7 +273,7 @@ if __name__ == "__main__":
             # We dump everything to SQL files instead.
             print("Activity insert failed. Falling back to SQL files for all tables...")
 
-            # use 0 or pre-existing ID for file writer
+            # use 0. Therefore, cannot use these files for the db yet
             fallback_id = 0
             activity_df["activity_id"] = fallback_id
 

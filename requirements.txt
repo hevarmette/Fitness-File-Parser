@@ -6,7 +6,7 @@ numpy
 fitdecode
 
 # PostgreSQL database
-psycopg2-binary
+psycopg
 
 # Configuration
 toml
