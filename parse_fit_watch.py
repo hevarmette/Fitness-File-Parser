@@ -6,9 +6,6 @@
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime
-
-import pandas as pd
-
 from helpers import (
     extract_date_from_filename_watch,
     get_dataframes,
@@ -16,7 +13,6 @@ from helpers import (
 from watch_files_to_sql import write_sql_statement_to_file
 import requests
 import time
-
 import toml
 import psycopg
 
@@ -125,57 +121,65 @@ def build_default_activity_name(session_df, activity_df):
 
 def db_insert_dataframe(df, table, conn, return_id=False):
     """
-    Inserts a dataframe into Postgres.
-
-    Features:
-    - Uses parameterized INSERT to prevent injection.
-    - Handles single-row inserts with `RETURNING activity_id`.
-    - Handles bulk inserts using `execute_values`.
+    Inserts a dataframe into Postgres using the generated SQL string from write_sql_statement_to_file.
 
     Args:
         df (pd.DataFrame): The DataFrame to insert.
         table (str): The target SQL table name.
         conn (psycopg.connection): The database connection object.
-        return_id (bool, optional): If True, returns the generated serial ID
-                                    (only for single row inserts). Defaults to False.
+        return_id (bool, optional): If True, appends 'RETURNING activity_id' to the SQL
+                                    and returns the ID. Defaults to False.
 
     Returns:
         int | bool | None:
             - The new ID (int) if return_id=True and success.
             - True if bulk insert success.
-            - None on failure or empty DataFrame.
+            - None on failure, conflict (no ID returned), or empty DataFrame.
     """
     if df.empty:
         return None
 
-    # Replace NaNs with None for SQL NULLs
-    df = df.where(pd.notna(df), None)
+    # Generate the SQL string instead of writing to file
+    sql_statement = write_sql_statement_to_file(df, table, return_sql=True)
 
-    # Convert to list of tuples
-    values = [tuple(x) for x in df.values]
-    cols = list(df.columns)
-    col_names = ", ".join(cols)
-
-    placeholders = ", ".join(["%s"] * len(cols))
+    if not sql_statement:
+        return None
 
     try:
         with conn.cursor() as cursor:
             if return_id:
-                # Single row insert with return
-                sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders}) RETURNING activity_id;"
-                cursor.execute(sql, values[0])
-                new_id = cursor.fetchone()[0]
-                conn.commit()
-                return new_id
+                # Modify the generated SQL to return the ID.
+                # The generator typically ends with ";". We strip it to append RETURNING.
+                sql_to_run = sql_statement.strip()
+                if sql_to_run.endswith(";"):
+                    sql_to_run = sql_to_run[:-1]
 
+                # Append RETURNING if not present
+                if "RETURNING" not in sql_to_run.upper():
+                    sql_to_run += " RETURNING activity_id"
+
+                cursor.execute(sql_to_run)
+
+                # Fetch the ID.
+                # Note: If 'ON CONFLICT DO NOTHING' triggered, this result will be None.
+                result = cursor.fetchone()
+                conn.commit()
+
+                if result:
+                    return result[0]
+                else:
+                    print(
+                        f"[DB INFO] {table} insert skipped (conflict or no ID returned)."
+                    )
+                    return None
             else:
-                sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"
-                cursor.executemany(sql, values)
+                cursor.execute(sql_statement)
                 conn.commit()
                 return True
 
     except Exception as e:
         print(f"[DB ERROR] Failed inserting into {table}: {e}")
+        conn.rollback()
         return None
 
 
@@ -220,7 +224,7 @@ if __name__ == "__main__":
     file_extension = ".fit"
 
     # Define date range for processing
-    after_date = datetime(2026, 2, 1).date()
+    after_date = datetime(2025, 2, 1).date()
     today = datetime.now().date()
 
     # Get all .fit files in the directory
@@ -262,7 +266,7 @@ if __name__ == "__main__":
         )
 
         # NOTE: This line forces the fallback logic regardless of success.
-        new_activity_id = None
+        # new_activity_id = None
 
         if new_activity_id is None:
             # ------------------------------------------
