@@ -121,15 +121,20 @@ if __name__ == "__main__":
         schema = os.getenv("SCHEMA")
 
         conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT MAX(timestamp::DATE) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
+        )
+        after_date = cur.fetchone()[0]
     else:
         conn = None
+        after_date = datetime(2026, 2, 21).date()
 
     # Directory to read .fit and .json_summary files from
     dir = "/home/heath/Documents/Garmin/"
     file_extension = ".fit"
 
     # Optional to only insert files between a certain date
-    after_date = datetime(2026, 2, 21).date()
     today = datetime.now().date()
 
     files = [
