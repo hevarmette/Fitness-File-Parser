@@ -1,7 +1,6 @@
 # parse_fit_garmin_connect.py
 # This file handles Garmin Connect files (summary JSON + FIT)
 import os
-import toml
 import pandas as pd
 from os import listdir
 from os.path import isfile, join
@@ -20,7 +19,7 @@ from watch_files_to_sql import write_sql_statement_to_file
 # pd.set_option("display.max_columns", None)
 
 
-def load_dataframe_to_postgres(df, tabl, _conn):
+def load_dataframe_to_postgres(df, table, _conn):
     """
     This will send decoded files directly to postgresql. I don't like this option as much because
     postgres will send back NaN and NaT if missing, which other db engines may not support. If
@@ -35,33 +34,52 @@ def load_dataframe_to_postgres(df, tabl, _conn):
         return True
 
     # Convert all column names into SQL-compatible string
-    columns = list(df.columns)
-    col_names = ", ".join(columns)
+    # columns = list(df.columns)
+    # col_names = ", ".join(columns)
+    #
+    # # Generate placeholders for psycopg (e.g., "%s, %s, %s")
+    # placeholders = ", ".join(["%s"] * len(columns))
+    #
+    # # Convert to list and replace NaN floats with None.
+    # rows = df.values.tolist()
+    # rows = [
+    #     [None if isinstance(val, float) and math.isnan(val) else val for val in row]
+    #     for row in rows
+    # ]
+    #
+    # try:
+    #     with _conn.cursor() as cursor:
+    #         insert_sql = f"INSERT INTO {tabl} ({col_names}) VALUES ({placeholders})"
+    #
+    #         cursor.executemany(insert_sql, rows)
+    #
+    #         _conn.commit()
+    #         print(f"[OK] Inserted {len(rows)} rows into {tabl}")
+    #         return True
+    #
+    # except Exception as e:
+    #     _conn.rollback()
+    #     print(f"[ERROR] Inserting into {tabl}: {e}")
+    #     # print(df.head(20))
+    #     return False
 
-    # Generate placeholders for psycopg (e.g., "%s, %s, %s")
-    placeholders = ", ".join(["%s"] * len(columns))
+    # Generate the SQL string instead of writing to file
+    sql_statement = write_sql_statement_to_file(df, table, return_sql=True)
 
-    # Convert to list and replace NaN floats with None.
-    rows = df.values.tolist()
-    rows = [
-        [None if isinstance(val, float) and math.isnan(val) else val for val in row]
-        for row in rows
-    ]
+    if not sql_statement:
+        print("Creating sql statement failed for dataframe that was not empty")
+        return True
 
     try:
-        with _conn.cursor() as cursor:
-            insert_sql = f"INSERT INTO {tabl} ({col_names}) VALUES ({placeholders})"
-
-            cursor.executemany(insert_sql, rows)
-
-            _conn.commit()
-            print(f"[OK] Inserted {len(rows)} rows into {tabl}")
+        with conn.cursor() as cursor:
+            # cursor.execute(f"SET search_path to {schema};")
+            cursor.execute(sql_statement)
+            conn.commit()
             return True
 
     except Exception as e:
-        _conn.rollback()
-        print(f"[ERROR] Inserting into {tabl}: {e}")
-        # print(df.head(20))
+        print(f"[DB ERROR] Failed inserting into {table}: {e}")
+        conn.rollback()
         return False
 
 
@@ -93,13 +111,16 @@ def insert_or_fallback(df, table, just_write_sql_file, _conn):
 
 if __name__ == "__main__":
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
-    ONLY_WRITE_FILE = True
+    ONLY_WRITE_FILE = False
     if not ONLY_WRITE_FILE:
         import psycopg
+        from dotenv import load_dotenv
 
-        config = toml.load("secrets.toml")
-        db_config = config["postgresql"]
-        conn = psycopg.connect(**db_config)
+        load_dotenv()
+        database_url = os.getenv("DB_UI_LOCAL")
+        schema = os.getenv("SCHEMA")
+
+        conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
     else:
         conn = None
 
@@ -108,7 +129,7 @@ if __name__ == "__main__":
     file_extension = ".fit"
 
     # Optional to only insert files between a certain date
-    after_date = datetime(2026, 2, 3).date()
+    after_date = datetime(2026, 2, 21).date()
     today = datetime.now().date()
 
     files = [
