@@ -128,7 +128,7 @@ if __name__ == "__main__":
         after_date = cur.fetchone()[0]
     else:
         conn = None
-        after_date = datetime(2026, 2, 21).date()
+        after_date = datetime(2026, 2, 26).date()
 
     # Directory to read .fit and .json_summary files from
     dir = "/home/heath/Documents/Garmin/"
