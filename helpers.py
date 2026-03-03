@@ -2,6 +2,7 @@
 # Shared utilities, constants, FIT parsing helpers, and DataFrame construction
 
 from datetime import datetime
+from dateutil import parser
 import pandas as pd
 import fitdecode
 import json
@@ -240,8 +241,9 @@ def extract_date_from_filename_connect(filename):
     Returns:
         datetime.date: The extracted date object.
     """
-    date_str = filename.split("T")[0]
-    return datetime.strptime(date_str, "%Y-%m-%d").date()
+    date_str = filename.split("_")[0]
+    return parser.isoparse(date_str.replace(".", ":"))
+    # return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
 def extract_date_from_filename_watch(filename):

@@ -4,8 +4,7 @@ import os
 import pandas as pd
 from os import listdir
 from os.path import isfile, join
-from datetime import datetime
-import math
+from datetime import datetime, timezone
 
 from helpers import (
     extract_date_from_filename_connect,
@@ -30,7 +29,7 @@ def load_dataframe_to_postgres(df, table, _conn):
     :param _conn connection: postgres connection
     """
     if df.empty:
-        print(f"[SKIP] {tabl}: dataframe is empty.")
+        print(f"[SKIP] {table}: dataframe is empty.")
         return True
 
     # Convert all column names into SQL-compatible string
@@ -123,12 +122,12 @@ if __name__ == "__main__":
         conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
         cur = conn.cursor()
         cur.execute(
-            "SELECT MAX(timestamp::DATE) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
+            "SELECT timestamp FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
         )
         after_date = cur.fetchone()[0]
     else:
         conn = None
-        after_date = datetime(2026, 2, 26).date()
+        after_date = datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
 
     # Directory to read .fit and .json_summary files from
     dir = "/home/heath/Documents/Garmin/"
