@@ -8,6 +8,8 @@ import fitdecode
 import json
 import os
 import numpy as np
+import psycopg
+from dotenv import load_dotenv
 
 # -------------------------
 # COLUMN DEFINITIONS
@@ -233,13 +235,13 @@ def get_user_activity_details(file):
 def extract_date_from_filename_connect(filename):
     """
     Extracts the date from a Garmin Connect filename.
-    Format expected: YYYY-MM-DDT...
+    Format expected: Date with datetime
 
     Args:
         filename (str): The filename string.
 
     Returns:
-        datetime.date: The extracted date object.
+        datetime.datetime: The extracted datetime object.
     """
     date_str = filename.split("_")[0]
     return parser.isoparse(date_str.replace(".", ":"))
@@ -557,3 +559,38 @@ def get_dataframes(fname: str, activity_id=None):
         activity_df["timestamp"] = activity_df["timestamp"].fillna(earliest_time)
 
     return lap_df, record_df, file_id_df, activity_df, session_df, length_df
+
+
+def get_cursor():
+    """
+    Connects to DB_UI_LOCAL environment variable. Needs to be set up in the project folder. Must have SCHEMA set up in the .env file as well.
+
+    Returns:
+        postgres.Cursor: postgres cursor
+    """
+
+    load_dotenv()
+    database_url = os.getenv("DB_UI_LOCAL")
+    schema = os.getenv("SCHEMA")
+
+    conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
+    cur = conn.cursor()
+    return cur
+
+
+def get_after_date(_cur):
+    """
+    Retrieve the latest activity timestamp from in the database
+
+    Args:
+        _cur (psycopg.Cursor): Interface to postgres.
+
+    Returns:
+        datetime.datetime: UTC
+    """
+
+    _cur.execute(
+        "SELECT MAX(timestamp) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
+    )
+    after_date = _cur.fetchone()[0]
+    return after_date

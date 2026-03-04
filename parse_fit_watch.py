@@ -1,7 +1,6 @@
 # parse_fit_watch.py
 # New pipeline: Watch-only FIT files (no JSON)
 # Uses newer SQL writer: write_sql_statement_to_file()
-# TODO: CHECK FOR NANS being sent back to the database!
 
 from os import listdir
 from os.path import isfile, join
@@ -9,19 +8,28 @@ from datetime import datetime
 from helpers import (
     extract_date_from_filename_watch,
     get_dataframes,
+    get_cursor,
+    get_after_date,
 )
 from watch_files_to_sql import write_sql_statement_to_file
 import requests
 import time
-import toml
 import psycopg
+from dotenv import load_dotenv
+import os
 
 # -------------------------
 # CONFIGURATION & DB CONNECTION
 # -------------------------
-config = toml.load("secrets.toml")
-db_config = config["postgresql"]
-conn = psycopg.connect(**db_config)
+load_dotenv()
+database_url = os.getenv("DB_UI_LOCAL")
+schema = os.getenv("SCHEMA")
+conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
+cur = conn.cursor()
+cur.execute(
+    "SELECT MAX(timestamp) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
+)
+after_date = cur.fetchone()[0]
 
 
 def reverse_geocode(lat, lon):
@@ -219,12 +227,16 @@ def insert_or_fallback(df, table):
 # ----------------------------------------
 
 if __name__ == "__main__":
-
+    """
+    Unlike the parse fit garmin connect, this will only work with a database connection because this logic expects activity IDs to be created in the database.
+    If an activity fails to insert for whatever reason, the file will be written with a made up activity id, and this is intended for testing purposes to check the SQL is valid.
+    """
     dir = "example activities/Activity/"
     file_extension = ".fit"
 
+    cur = get_cursor()
+    after_date = get_after_date(cur)
     # Define date range for processing
-    after_date = datetime(2025, 2, 1).date()
     today = datetime.now().date()
 
     # Get all .fit files in the directory

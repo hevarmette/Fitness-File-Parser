@@ -11,6 +11,8 @@ from helpers import (
     get_user_activity_details,
     get_json_info,
     get_dataframes,
+    get_after_date,
+    get_cursor,
 )
 
 from watch_files_to_sql import write_sql_statement_to_file
@@ -112,19 +114,8 @@ if __name__ == "__main__":
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
     ONLY_WRITE_FILE = False
     if not ONLY_WRITE_FILE:
-        import psycopg
-        from dotenv import load_dotenv
-
-        load_dotenv()
-        database_url = os.getenv("DB_UI_LOCAL")
-        schema = os.getenv("SCHEMA")
-
-        conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT MAX(timestamp) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
-        )
-        after_date = cur.fetchone()[0]
+        cur = get_cursor()
+        after_date = get_after_date(cur)
     else:
         conn = None
         after_date = datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
