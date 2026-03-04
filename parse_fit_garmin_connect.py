@@ -122,7 +122,7 @@ if __name__ == "__main__":
         conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
         cur = conn.cursor()
         cur.execute(
-            "SELECT timestamp FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
+            "SELECT MAX(timestamp) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
         )
         after_date = cur.fetchone()[0]
     else:
