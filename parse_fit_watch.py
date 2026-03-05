@@ -4,7 +4,7 @@
 
 from os import listdir
 from os.path import isfile, join
-from datetime import datetime
+from datetime import datetime, timezone
 from helpers import (
     extract_date_from_filename_watch,
     get_dataframes,
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     cur = get_cursor()
     after_date = get_after_date(cur)
     # Define date range for processing
-    today = datetime.now().date()
+    today = datetime.now(timezone.utc)
 
     # Get all .fit files in the directory
     files = [

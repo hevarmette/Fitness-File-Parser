@@ -1,7 +1,7 @@
 # helpers.py
 # Shared utilities, constants, FIT parsing helpers, and DataFrame construction
 
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil import parser
 import pandas as pd
 import fitdecode
@@ -257,10 +257,10 @@ def extract_date_from_filename_watch(filename):
         filename (str): The filename string.
 
     Returns:
-        datetime.date: The extracted date object.
+        datetime.datetime: The extracted datetime object.
     """
     date_str = filename.split(".")[0]
-    return datetime.strptime(date_str, "%Y-%m-%d-%H-%M-%S").date()
+    return datetime.strptime(date_str, "%Y-%m-%d-%H-%M-%S").replace(tzinfo=timezone.utc)
 
 
 # -------------------------
