@@ -561,7 +561,7 @@ def get_dataframes(fname: str, activity_id=None):
     return lap_df, record_df, file_id_df, activity_df, session_df, length_df
 
 
-def get_cursor():
+def get_conn():
     """
     Connects to DB_UI_LOCAL environment variable. Needs to be set up in the project folder. Must have SCHEMA set up in the .env file as well.
 
@@ -574,23 +574,23 @@ def get_cursor():
     schema = os.getenv("SCHEMA")
 
     conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
-    cur = conn.cursor()
-    return cur
+    return conn
 
 
-def get_after_date(_cur):
+def get_after_date(_conn):
     """
-    Retrieve the latest activity timestamp from in the database
+    Retrieve the latest activity timestamp from the database.
 
     Args:
-        _cur (psycopg.Cursor): Interface to postgres.
+        _conn (psycopg.Connection): Interface to postgres.
 
     Returns:
         datetime.datetime: UTC
     """
-
-    _cur.execute(
-        "SELECT MAX(timestamp) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
-    )
-    after_date = _cur.fetchone()[0]
-    return after_date
+    with _conn.cursor() as cur:
+        cur.execute(
+            "SELECT MAX(timestamp) FROM activity WHERE timestamp < NOW() AT TIME ZONE 'UTC';"
+        )
+        row = cur.fetchone()
+    # Return the after date
+    return row[0] if row else None

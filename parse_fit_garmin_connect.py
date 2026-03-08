@@ -12,7 +12,7 @@ from helpers import (
     get_json_info,
     get_dataframes,
     get_after_date,
-    get_cursor,
+    get_conn,
 )
 
 from watch_files_to_sql import write_sql_statement_to_file
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
     ONLY_WRITE_FILE = False
     if not ONLY_WRITE_FILE:
-        cur = get_cursor()
-        after_date = get_after_date(cur)
+        conn = get_conn()
+        after_date = get_after_date(conn)
     else:
         conn = None
         after_date = datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc)

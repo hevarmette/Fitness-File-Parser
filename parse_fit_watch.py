@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from helpers import (
     extract_date_from_filename_watch,
     get_dataframes,
-    get_cursor,
+    get_conn,
     get_after_date,
 )
 from watch_files_to_sql import write_sql_statement_to_file
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     dir = "example activities/Activity/"
     file_extension = ".fit"
 
-    cur = get_cursor()
+    cur = get_conn()
     after_date = get_after_date(cur)
     # Define date range for processing
     today = datetime.now(timezone.utc)
