@@ -1,18 +1,17 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Union, Optional, Tuple
 import os
 import pandas as pd
-import psycopg2
 import fitdecode
-import toml
+from dotenv import load_dotenv
+from helpers import get_conn
 
-dir = r"/media/heath/T71/Updated Garmin/"  # LINUX
+load_dotenv()
+dir = os.getenv("FIT_DIR")
 file_extension = ".fit"
 
 # Connection details for Postgresql DB.
-config = toml.load("secrets.toml")
-db_config = config["postgresql"]
-conn = psycopg2.connect(**db_config)
+conn = get_conn()
 session = ["sub_sport", "pool_length", "pool_length_unit"]
 
 
@@ -154,4 +153,3 @@ if __name__ == "__main__":
     print("finished")
     print("errors")
     print(errors)
-

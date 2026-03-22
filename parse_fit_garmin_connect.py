@@ -14,7 +14,7 @@ from helpers import (
     get_after_date,
     get_conn,
 )
-
+from dotenv import load_dotenv
 from watch_files_to_sql import write_sql_statement_to_file
 
 # pd.set_option("display.max_columns", None)
@@ -121,7 +121,9 @@ if __name__ == "__main__":
         after_date = datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
 
     # Directory to read .fit and .json_summary files from
-    dir = "/home/heath/Documents/Garmin/"
+    load_dotenv()
+    # FIT_DIR needs to be in .env file
+    dir = os.getenv("FIT_DIR")
     file_extension = ".fit"
 
     # Optional to only insert files between a certain date
