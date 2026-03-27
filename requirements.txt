@@ -20,3 +20,6 @@ gpxpy
 
 # Date parsing
 python-dateutil
+
+# Reading environment variables
+dotenv

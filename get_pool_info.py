@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from helpers import get_conn
 
 load_dotenv()
-dir = os.getenv("FIT_DIR")
+raw_dir = os.getenv("FIT_DIR")
+dir = os.path.expandvars(raw_dir)
 file_extension = ".fit"
 
 # Connection details for Postgresql DB.

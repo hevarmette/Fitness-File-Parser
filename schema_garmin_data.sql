@@ -92,7 +92,7 @@ CREATE TABLE activity (
     type character varying(50),
     event character varying(50),
     event_type character varying(50),
-    event_group character varying(50),
+    event_group smallint,
     PRIMARY KEY (activity_id)
 );
 
@@ -189,7 +189,7 @@ CREATE TABLE session (
     avg_cadence smallint,
     max_cadence smallint,
     total_training_effect real,
-    event_group real,
+    event_group smallint,
     trigger character varying(50),
     pool_length smallint,
     pool_length_unit character varying(20),
@@ -211,4 +211,16 @@ CREATE TABLE length (
   length_type varchar(15),
   PRIMARY KEY (length_id),
   CONSTRAINT fk_length_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
+);
+
+CREATE TABLE event (
+  event_id serial NOT NULL,
+  activity_id bigint NOT NULL,
+  "timestamp" timestamp with time zone,
+  event character varying(50),
+  event_type character varying(50),
+  data character varying(50),
+  event_group smallint,
+  PRIMARY KEY (event_id),
+  CONSTRAINT fk_event_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );

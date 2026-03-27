@@ -110,6 +110,7 @@ length = [
     "length_type",
 ]
 
+event = ["timestamp", "event", "event_type", "data", "event_group"]
 
 DIVISOR = (2**32) / 360
 # -------------------------
@@ -412,12 +413,15 @@ def get_dataframes(fname: str, activity_id=None):
     activity_data = []
     session_data = []
     length_data = []
+    event_data = []
     intensity = []
     wsi = []
     # just initially the intensity value for a lap. it may be present
     has_intensity = False
 
-    # Iterate through the FIT file
+    # Iterate through the FIT file. This iterates through every possible frame, not just the ones I have a table for.
+    # This is good for exploration, but for efficiency, it would be better to only loop for the records you want explicitly.
+    # I have made a custom schema to intensities are in the lap table
     with fitdecode.FitReader(fname) as fit_file:
         for frame in fit_file:
             if not isinstance(frame, fitdecode.records.FitDataMessage):
@@ -453,8 +457,12 @@ def get_dataframes(fname: str, activity_id=None):
             elif frame.name == "session":
                 # session_data.append(get_fit_session_data(frame))
                 session_data.append(get_fit_other_data(session, frame))
+
             elif frame.name == "length":
                 length_data.append(get_fit_other_data(length, frame))
+
+            elif frame.name == "event":
+                event_data.append(get_fit_other_data(event, frame))
 
     # Build DataFrames
     lap_df = create_safe_df(lap_data, lap, "lap_df", activity_id)
@@ -507,6 +515,7 @@ def get_dataframes(fname: str, activity_id=None):
     length_df = create_safe_df(
         length_data, length, "length_df", activity_id=activity_id
     )
+    event_df = create_safe_df(event_data, event, "event_df", activity_id=activity_id)
 
     # Post-processing: Date formatting and fallbacks
     if not file_id_df.empty and "time_created" in file_id_df.columns:
@@ -548,7 +557,15 @@ def get_dataframes(fname: str, activity_id=None):
 
     # This should only be true for files from garmin connect.
     if activity_id:
-        for df in (lap_df, record_df, file_id_df, activity_df, session_df, length_df):
+        for df in (
+            lap_df,
+            record_df,
+            file_id_df,
+            activity_df,
+            session_df,
+            length_df,
+            event_df,
+        ):
             df["activity_id"] = activity_id
 
     # it seems some manual activities from garmin connect will be missing some timestamps,
@@ -558,7 +575,7 @@ def get_dataframes(fname: str, activity_id=None):
         earliest_time = session_df["start_time"].min()
         activity_df["timestamp"] = activity_df["timestamp"].fillna(earliest_time)
 
-    return lap_df, record_df, file_id_df, activity_df, session_df, length_df
+    return lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df
 
 
 def get_conn():
@@ -592,5 +609,8 @@ def get_after_date(_conn):
             "SELECT MAX(timestamp) FROM activity WHERE timestamp < NOW() AT TIME ZONE 'UTC';"
         )
         row = cur.fetchone()
+        after_date = row[0]
+        if after_date is None:
+            after_date = datetime(1900, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     # Return the after date
-    return row[0] if row else None
+    return after_date

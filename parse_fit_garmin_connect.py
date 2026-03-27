@@ -123,7 +123,8 @@ if __name__ == "__main__":
     # Directory to read .fit and .json_summary files from
     load_dotenv()
     # FIT_DIR needs to be in .env file
-    dir = os.getenv("FIT_DIR")
+    raw_dir = os.getenv("FIT_DIR")
+    dir = os.path.expandvars(raw_dir)
     file_extension = ".fit"
 
     # Optional to only insert files between a certain date
@@ -150,9 +151,16 @@ if __name__ == "__main__":
 
         try:
             # this will only fail if activity_df fails
-            lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
-                get_dataframes(fname, activity_id)
-            )
+            (
+                lap_df,
+                record_df,
+                file_id_df,
+                activity_df,
+                session_df,
+                length_df,
+                event_df,
+            ) = get_dataframes(fname, activity_id)
+
         except Exception as e:
             # if getting an activity fails, then we skip the rest of the information,
             # because activity is the main table with the primary key, activity_id
@@ -175,4 +183,5 @@ if __name__ == "__main__":
         insert_or_fallback(record_df, "record", ONLY_WRITE_FILE, conn)
         insert_or_fallback(session_df, "session", ONLY_WRITE_FILE, conn)
         insert_or_fallback(length_df, "length", ONLY_WRITE_FILE, conn)
+        insert_or_fallback(event_df, "event", ONLY_WRITE_FILE, conn)
     print("Done")

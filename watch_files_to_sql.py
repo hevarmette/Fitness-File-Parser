@@ -1,8 +1,5 @@
 import pandas as pd
 import os
-from os import listdir
-from os.path import isfile, join
-from datetime import datetime
 
 
 def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
@@ -102,7 +99,6 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
                     "type",
                     "event",
                     "event_type",
-                    "event_group",
                 ]
                 row_vals.append(get_sql_value(row, col, quote=needs_quote))
 
@@ -333,6 +329,31 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
             INSERT INTO length(
                 activity_id, timestamp, start_time,  
                 total_timer_time, total_strokes, avg_speed, swim_stroke
+            )
+            VALUES 
+            {bulk_values};
+            """
+
+    elif tabl == "event":
+        values_list = []
+        for index, row in df.iterrows():
+            row_str = (
+                f"("
+                f"{get_sql_value(row, 'activity_id')}, "
+                f"{get_sql_value(row, 'timestamp', quote=True)}, "
+                f"{get_sql_value(row, 'event', quote=True)}, "
+                f"{get_sql_value(row, 'event_type', quote=True)}, "
+                f"{get_sql_value(row, 'data', quote=True)}, "
+                f"{get_sql_value(row, 'event_group')}"
+                f")"
+            )
+            values_list.append(row_str)
+
+        if values_list:
+            bulk_values = ",\n".join(values_list)
+            sql = f"""
+            INSERT INTO event(
+                activity_id, timestamp, event, event_type, data, event_group
             )
             VALUES 
             {bulk_values};

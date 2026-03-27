@@ -231,7 +231,8 @@ if __name__ == "__main__":
     Unlike the parse fit garmin connect, this will only work with a database connection because this logic expects activity IDs to be created in the database.
     If an activity fails to insert for whatever reason, the file will be written with a made up activity id, and this is intended for testing purposes to check the SQL is valid.
     """
-    dir = "example activities/Activity/"
+    raw_dir = os.getenv("FIT_DIR")
+    dir = os.path.expandvars(raw_dir)
     file_extension = ".fit"
 
     cur = get_conn()
@@ -255,7 +256,7 @@ if __name__ == "__main__":
         fname = dir + file
 
         # Parse FIT file into DataFrames
-        lap_df, record_df, file_id_df, activity_df, session_df, length_df = (
+        lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df = (
             get_dataframes(fname)
         )
 
@@ -296,7 +297,7 @@ if __name__ == "__main__":
             # ensure other tables also use 0
             apply_activity_id_to_dfs(
                 fallback_id,
-                [file_id_df, lap_df, record_df, session_df, length_df],
+                [file_id_df, lap_df, record_df, session_df, length_df, event_df],
             )
 
             # write all tables to SQL files
@@ -306,6 +307,7 @@ if __name__ == "__main__":
             write_sql_statement_to_file(record_df, "record")
             write_sql_statement_to_file(session_df, "session")
             write_sql_statement_to_file(length_df, "length")
+            write_sql_statement_to_file(event_df, "event")
 
             print("Skipped DB inserts for this file due to activity failure.\n")
             fallback_id += 1
@@ -317,7 +319,7 @@ if __name__ == "__main__":
             # If Activity insert succeeded, propagate the new ID to all child DataFrames
             apply_activity_id_to_dfs(
                 new_activity_id,
-                [file_id_df, lap_df, record_df, session_df, length_df],
+                [file_id_df, lap_df, record_df, session_df, length_df, event_df],
             )
 
             # ---------------------------
@@ -329,4 +331,5 @@ if __name__ == "__main__":
             insert_or_fallback(record_df, "record")
             insert_or_fallback(session_df, "session")
             insert_or_fallback(length_df, "length")
+            insert_or_fallback(event_df, "event")
             # NOTE: session parser is using float definitions right now
