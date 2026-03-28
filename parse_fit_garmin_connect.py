@@ -72,15 +72,15 @@ def load_dataframe_to_postgres(df, table, _conn):
         return True
 
     try:
-        with conn.cursor() as cursor:
+        with _conn.cursor() as cursor:
             # cursor.execute(f"SET search_path to {schema};")
             cursor.execute(sql_statement)
-            conn.commit()
+            _conn.commit()
             return True
 
     except Exception as e:
         print(f"[DB ERROR] Failed inserting into {table}: {e}")
-        conn.rollback()
+        _conn.rollback()
         return False
 
 
