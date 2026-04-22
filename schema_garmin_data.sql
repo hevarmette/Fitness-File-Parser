@@ -129,6 +129,9 @@ CREATE TABLE lap (
     max_heart_rate smallint,
     avg_heart_rate smallint,
     intensity VARCHAR(20),
+    avg_power smallint,
+    max_power smallint,
+    normalized_power smallint,
     PRIMARY KEY (lap_id),
     CONSTRAINT fk_lap_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );
@@ -174,7 +177,7 @@ CREATE TABLE session (
     avg_speed real,
     enhanced_max_speed real,
     max_speed real,
-    avg_power real,
+    avg_power smallint,
     max_power real,
     total_ascent smallint,
     total_descent smallint,

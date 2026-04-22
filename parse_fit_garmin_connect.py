@@ -112,13 +112,13 @@ def insert_or_fallback(df, table, just_write_sql_file, _conn):
 
 if __name__ == "__main__":
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
-    ONLY_WRITE_FILE = False
+    ONLY_WRITE_FILE = True
     if not ONLY_WRITE_FILE:
         conn = get_conn()
         after_date = get_after_date(conn)
     else:
         conn = None
-        after_date = datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
+        after_date = datetime(2021, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
 
     # Directory to read .fit and .json_summary files from
     load_dotenv()

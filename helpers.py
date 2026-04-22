@@ -43,6 +43,9 @@ lap = [
     "avg_running_cadence",
     "avg_vertical_oscillation",
     "avg_vertical_ratio",
+    "avg_power",
+    "max_power",
+    "normalized_power",
 ]
 
 file_id = ["serial_number", "time_created", "manufacturer", "product", "number", "type"]

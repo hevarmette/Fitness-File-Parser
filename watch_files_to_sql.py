@@ -208,7 +208,10 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
                 f"{get_sql_value(row, 'intensity', quote=True)}, "
                 f"{get_sql_value(row, 'avg_running_cadence')}, "
                 f"{get_sql_value(row, 'max_heart_rate')}, "
-                f"{get_sql_value(row, 'avg_heart_rate')}"
+                f"{get_sql_value(row, 'avg_heart_rate')}, "
+                f"{get_sql_value(row, 'avg_power')}, "
+                f"{get_sql_value(row, 'max_power')}, "
+                f"{get_sql_value(row, 'normalized_power')}"
                 f")"
             )
             values_list.append(row_str)
@@ -221,7 +224,8 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
                 total_timer_time, total_ascent, total_descent, 
                 avg_vertical_oscillation, avg_stance_time, avg_vertical_ratio, 
                 avg_stance_time_balance, avg_step_length, intensity, 
-                avg_running_cadence, max_heart_rate, avg_heart_rate
+                avg_running_cadence, max_heart_rate, avg_heart_rate,
+                avg_power, max_power, normalized_power
             )
             VALUES 
             {bulk_values};
