@@ -112,7 +112,7 @@ def insert_or_fallback(df, table, just_write_sql_file, _conn):
 
 if __name__ == "__main__":
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
-    ONLY_WRITE_FILE = True
+    ONLY_WRITE_FILE = False
     if not ONLY_WRITE_FILE:
         conn = get_conn()
         after_date = get_after_date(conn)
