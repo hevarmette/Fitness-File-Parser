@@ -1,7 +1,11 @@
 # helpers.py
 # Shared utilities, constants, FIT parsing helpers, and DataFrame construction
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import Any
+
 from dateutil import parser
 import pandas as pd
 import fitdecode
@@ -121,7 +125,7 @@ DIVISOR = (2**32) / 360
 # -------------------------
 
 
-def isNan(num):
+def isNan(num: object) -> bool:
     """
     Checks if a value is NaN (Not a Number).
 
@@ -134,7 +138,7 @@ def isNan(num):
     return num != num
 
 
-def unique(list1):
+def unique(list1: list) -> list:
     """
     Returns a list of unique elements from the input list, preserving order.
 
@@ -148,7 +152,7 @@ def unique(list1):
     return unique_list
 
 
-def get_json_info(file):
+def get_json_info(file: str) -> dict[str, Any] | None:
     """
     Reads _summary.json Garmin Connect files with desired key mappings.
 
@@ -196,7 +200,7 @@ def get_json_info(file):
         return None
 
 
-def get_nested_value(data, keys_chain):
+def get_nested_value(data: dict | list, keys_chain: list[str]) -> Any:
     """
     Retrieves a value from a nested dictionary or list using a chain of keys.
 
@@ -219,7 +223,7 @@ def get_nested_value(data, keys_chain):
     return value
 
 
-def get_user_activity_details(file):
+def get_user_activity_details(file: str) -> str:
     """
     Returns the activity id for an activity based on the filename.
 
@@ -236,7 +240,7 @@ def get_user_activity_details(file):
     return activity_id
 
 
-def extract_date_from_filename_connect(filename):
+def extract_date_from_filename_connect(filename: str) -> datetime:
     """
     Extracts the date from a Garmin Connect filename.
     Format expected: Date with datetime
@@ -252,7 +256,7 @@ def extract_date_from_filename_connect(filename):
     # return datetime.strptime(date_str, "%Y-%m-%d").date()
 
 
-def extract_date_from_filename_watch(filename):
+def extract_date_from_filename_watch(filename: str) -> datetime:
     """
     Extracts the date from a generic watch filename.
     Format expected: YYYY-MM-DD-HH-MM-SS.fit
@@ -272,7 +276,7 @@ def extract_date_from_filename_watch(filename):
 # -------------------------
 
 
-def get_fit_lap_data(frame):
+def get_fit_lap_data(frame: fitdecode.FitDataMessage) -> dict[str, Any]:
     """
     Extracts defined fields from a 'lap' FIT message frame.
 
@@ -289,7 +293,7 @@ def get_fit_lap_data(frame):
     return data
 
 
-def get_fit_point_data(frame):
+def get_fit_point_data(frame: fitdecode.FitDataMessage) -> dict[str, Any] | None:
     """
     Extracts defined fields from a 'record' FIT message frame.
     Specifically handles latitude/longitude extraction.
@@ -316,7 +320,7 @@ def get_fit_point_data(frame):
     return data
 
 
-def get_fit_session_data(frame):
+def get_fit_session_data(frame: fitdecode.FitDataMessage) -> dict[str, Any]:
     """
     Extracts defined fields from a 'session' FIT message frame.
     Converts positional data (lat/long) using the global DIVISOR.
@@ -342,7 +346,7 @@ def get_fit_session_data(frame):
     return data
 
 
-def get_fit_other_data(col, frame):
+def get_fit_other_data(col: list[str], frame: fitdecode.FitDataMessage) -> dict[str, Any]:
     """
     Generic extraction for other FIT message types (file_id, activity, etc.).
 
@@ -360,7 +364,7 @@ def get_fit_other_data(col, frame):
     return data
 
 
-def create_safe_df(data, columns, df_name, activity_id):
+def create_safe_df(data: list[dict], columns: list[str], df_name: str, activity_id: str | None) -> pd.DataFrame:
     """
     Creates a Pandas DataFrame safely, catching and logging any errors.
 
@@ -391,7 +395,7 @@ def create_safe_df(data, columns, df_name, activity_id):
 # -------------------------
 
 
-def get_dataframes(fname: str, activity_id=None):
+def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Reads a FIT file and produces DataFrames for:
     lap, record, file_id, activity, session, length.
@@ -581,7 +585,7 @@ def get_dataframes(fname: str, activity_id=None):
     return lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df
 
 
-def get_conn():
+def get_conn() -> psycopg.Connection:
     """
     Connects to DB_UI_LOCAL environment variable. Needs to be set up in the project folder. Must have SCHEMA set up in the .env file as well.
 
@@ -597,7 +601,7 @@ def get_conn():
     return conn
 
 
-def get_after_date(_conn):
+def get_after_date(_conn: psycopg.Connection) -> datetime:
     """
     Retrieve the latest activity timestamp from the database.
 
