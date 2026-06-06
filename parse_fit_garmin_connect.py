@@ -119,7 +119,7 @@ if __name__ == "__main__":
     else:
         conn = None
         after_date = datetime(2021, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
-
+    print(after_date)
     # Directory to read .fit and .json_summary files from
     load_dotenv()
     # FIT_DIR needs to be in .env file
