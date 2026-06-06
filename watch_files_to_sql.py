@@ -1,8 +1,12 @@
+from __future__ import annotations
+
+from typing import Any
+
 import pandas as pd
 import os
 
 
-def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
+def write_sql_statement_to_file(df: pd.DataFrame, tabl: str, log_file_path: str | None = None, return_sql: bool = False) -> str | None:
     """
     Outputs SQL INSERT statements with robust formatting.
 
@@ -12,7 +16,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
     # ---------------------------------------------------------
     # 1. HELPER FUNCTIONS
     # ---------------------------------------------------------
-    def sql_format(value, quote=False):
+    def sql_format(value: Any, quote: bool = False) -> str:
         """
         Replaces NaN with NULLs and double quotes apostrophes to prevent accidentally ending strings with an apostrophe
         """
@@ -24,7 +28,7 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
             return f"'{safe}'"
         return str(value)
 
-    def get_sql_value(row, col, quote=False):
+    def get_sql_value(row: pd.Series, col: str, quote: bool = False) -> str:
         """
         Will return formatted value for sql statement creation or NULL if column is not present.
         """
@@ -208,7 +212,10 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
                 f"{get_sql_value(row, 'intensity', quote=True)}, "
                 f"{get_sql_value(row, 'avg_running_cadence')}, "
                 f"{get_sql_value(row, 'max_heart_rate')}, "
-                f"{get_sql_value(row, 'avg_heart_rate')}"
+                f"{get_sql_value(row, 'avg_heart_rate')}, "
+                f"{get_sql_value(row, 'avg_power')}, "
+                f"{get_sql_value(row, 'max_power')}, "
+                f"{get_sql_value(row, 'normalized_power')}"
                 f")"
             )
             values_list.append(row_str)
@@ -221,7 +228,8 @@ def write_sql_statement_to_file(df, tabl, log_file_path=None, return_sql=False):
                 total_timer_time, total_ascent, total_descent, 
                 avg_vertical_oscillation, avg_stance_time, avg_vertical_ratio, 
                 avg_stance_time_balance, avg_step_length, intensity, 
-                avg_running_cadence, max_heart_rate, avg_heart_rate
+                avg_running_cadence, max_heart_rate, avg_heart_rate,
+                avg_power, max_power, normalized_power
             )
             VALUES 
             {bulk_values};

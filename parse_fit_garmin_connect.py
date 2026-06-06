@@ -1,4 +1,6 @@
 # parse_fit_garmin_connect.py
+from __future__ import annotations
+
 # This file handles Garmin Connect files (summary JSON + FIT)
 import os
 import pandas as pd
@@ -15,19 +17,20 @@ from helpers import (
     get_conn,
 )
 from dotenv import load_dotenv
+import psycopg
 from watch_files_to_sql import write_sql_statement_to_file
 
 # pd.set_option("display.max_columns", None)
 
 
-def load_dataframe_to_postgres(df, table, _conn):
+def load_dataframe_to_postgres(df: pd.DataFrame, table: str, _conn: psycopg.Connection) -> bool:
     """
     This will send decoded files directly to postgresql. I don't like this option as much because
     postgres will send back NaN and NaT if missing, which other db engines may not support. If
     you don't want to use postgres anyway.
 
     :param df pd.DataFrame: data of table to upload
-    :param tabl string: table name of table for insertion
+    :param table string: table name of table for insertion
     :param _conn connection: postgres connection
     """
     if df.empty:
@@ -84,7 +87,7 @@ def load_dataframe_to_postgres(df, table, _conn):
         return False
 
 
-def insert_or_fallback(df, table, just_write_sql_file, _conn):
+def insert_or_fallback(df: pd.DataFrame, table: str, just_write_sql_file: bool, _conn: psycopg.Connection | None) -> None:
     """
     Directly inserts data to database or it will simply write a file to local if anything fails
     are if the flag is to only write the file
@@ -118,8 +121,8 @@ if __name__ == "__main__":
         after_date = get_after_date(conn)
     else:
         conn = None
-        after_date = datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
-
+        after_date = datetime(2021, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
+    print(after_date)
     # Directory to read .fit and .json_summary files from
     load_dotenv()
     # FIT_DIR needs to be in .env file

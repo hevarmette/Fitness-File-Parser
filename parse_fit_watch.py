@@ -2,6 +2,8 @@
 # New pipeline: Watch-only FIT files (no JSON)
 # Uses newer SQL writer: write_sql_statement_to_file()
 
+from __future__ import annotations
+
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timezone
@@ -15,6 +17,7 @@ from watch_files_to_sql import write_sql_statement_to_file
 import requests
 import time
 import psycopg
+import pandas as pd
 from dotenv import load_dotenv
 import os
 
@@ -32,7 +35,7 @@ cur.execute(
 after_date = cur.fetchone()[0]
 
 
-def reverse_geocode(lat, lon):
+def reverse_geocode(lat: float, lon: float) -> tuple[str | None, str | None]:
     """
     Reverse geocode using OSM Nominatim.
     Returns (city, county).
@@ -77,7 +80,7 @@ def reverse_geocode(lat, lon):
         return None, None
 
 
-def build_default_activity_name(session_df, activity_df):
+def build_default_activity_name(session_df: pd.DataFrame, activity_df: pd.DataFrame) -> str:
     """
     Generates default activity name based on location and sport type.
 
@@ -127,7 +130,7 @@ def build_default_activity_name(session_df, activity_df):
     return f"{location} {sport_name}"
 
 
-def db_insert_dataframe(df, table, conn, return_id=False):
+def db_insert_dataframe(df: pd.DataFrame, table: str, conn: psycopg.Connection, return_id: bool = False) -> int | bool | None:
     """
     Inserts a dataframe into Postgres using the generated SQL string from write_sql_statement_to_file.
 
@@ -191,7 +194,7 @@ def db_insert_dataframe(df, table, conn, return_id=False):
         return None
 
 
-def apply_activity_id_to_dfs(activity_id, dfs):
+def apply_activity_id_to_dfs(activity_id: int, dfs: list[pd.DataFrame]) -> None:
     """
     Assigns the given activity_id to a list of DataFrames.
 
@@ -203,7 +206,7 @@ def apply_activity_id_to_dfs(activity_id, dfs):
         df["activity_id"] = activity_id
 
 
-def insert_or_fallback(df, table):
+def insert_or_fallback(df: pd.DataFrame, table: str) -> None:
     """
     Attempts to insert a DataFrame into the database.
     If the database insert fails (returns None), it falls back to writing
