@@ -8,6 +8,7 @@ from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timezone
 from helpers import (
+    extract_date_from_filename_connect,
     extract_date_from_filename_watch,
     get_dataframes,
     get_conn,
@@ -249,9 +250,17 @@ if __name__ == "__main__":
     ]
 
     # Filter files based on the date range extracted from filename
-    filtered_files = [
-        f for f in files if after_date < extract_date_from_filename_watch(f) <= today
-    ]
+    filtered_files = []
+    for f in files:
+        try:
+            file_date = extract_date_from_filename_watch(f)
+        except ValueError:
+            file_date = extract_date_from_filename_connect(f)
+        if after_date < file_date <= today:
+            filtered_files.append(f)
+
+    #     f for f in files if after_date < extract_date_from_filename_watch(f) <= today
+    # ]
 
     # Process each file individually
     fallback_id = 1000000000
