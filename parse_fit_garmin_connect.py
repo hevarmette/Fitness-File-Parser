@@ -7,9 +7,11 @@ import pandas as pd
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from helpers import (
     extract_date_from_filename_connect,
+    extract_date_from_filename_watch,
     get_user_activity_details,
     get_json_info,
     get_dataframes,
@@ -131,17 +133,21 @@ if __name__ == "__main__":
     file_extension = ".fit"
 
     # Optional to only insert files between a certain date
-    today = datetime.now().date()
+    today = datetime.now(ZoneInfo("America/Chicago"))#.date()
 
     files = [
         f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
     ]
 
-    filtered_files = [
-        f
-        for f in files
-        if after_date < extract_date_from_filename_connect(f)  # <= today
-    ]
+    filtered_files = []
+    # f
+    for f in files:
+        try:
+            file_date = extract_date_from_filename_connect(f)
+        except ValueError:
+            file_date = extract_date_from_filename_watch(f)
+        if after_date < file_date <= today:
+            filtered_files.append(f)
 
     errors = []
 
