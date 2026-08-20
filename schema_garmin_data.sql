@@ -227,3 +227,14 @@ CREATE TABLE event (
   PRIMARY KEY (event_id),
   CONSTRAINT fk_event_activity FOREIGN KEY (activity_id) REFERENCES activity(activity_id)
 );
+
+CREATE TABLE workout (
+    workout_id serial NOT NULL,
+    name varchar(50) NOT NULL,
+    sport varchar(20) NOT NULL,
+    description text,
+    definition jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (workout_id)
+);
