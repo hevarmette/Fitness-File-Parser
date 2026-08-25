@@ -234,6 +234,7 @@ CREATE TABLE workout (
     sport varchar(20) NOT NULL,
     description text,
     definition jsonb NOT NULL,
+    scheduled_date DATE,
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
     PRIMARY KEY (workout_id)
