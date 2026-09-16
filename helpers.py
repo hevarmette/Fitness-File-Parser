@@ -3,16 +3,16 @@
 
 from __future__ import annotations
 
+import json
+import os
 from datetime import datetime, timezone
 from typing import Any
 
-from dateutil import parser
-import pandas as pd
 import fitdecode
-import json
-import os
 import numpy as np
+import pandas as pd
 import psycopg
+from dateutil import parser
 from dotenv import load_dotenv
 
 # -------------------------
@@ -119,6 +119,16 @@ length = [
 
 event = ["timestamp", "event", "event_type", "data", "event_group"]
 
+# Message names get_dataframes actually consumes. The seven schema tables plus
+# `workout_step`, which carries the per-step `intensity` values (warmup / active
+# / rest / recovery / cooldown) that the lap intensity-matching logic depends on.
+# `lap` supplies both `intensity` and `wkt_step_index`; `workout_step` supplies
+# only `intensity`. Any frame whose name is not in this set contributes nothing
+# to the decoded output and can be skipped early.
+WANTED_MESSAGE_NAMES: frozenset[str] = frozenset(
+    {"record", "lap", "file_id", "activity", "session", "length", "event", "workout_step"}
+)
+
 DIVISOR = (2**32) / 360
 # -------------------------
 # UTILITY FUNCTIONS
@@ -186,12 +196,11 @@ def get_json_info(file: str) -> dict[str, Any] | None:
     }
 
     try:
-        with open(file, "r", encoding="utf-8") as json_file:
+        with open(file, encoding="utf-8") as json_file:
             data = json.load(json_file)
 
         extracted_info = {
-            key_mapping[key]: get_nested_value(data, key.split("."))
-            for key in desired_keys
+            key_mapping[key]: get_nested_value(data, key.split(".")) for key in desired_keys
         }
         return extracted_info
 
@@ -320,32 +329,6 @@ def get_fit_point_data(frame: fitdecode.FitDataMessage) -> dict[str, Any] | None
     return data
 
 
-def get_fit_session_data(frame: fitdecode.FitDataMessage) -> dict[str, Any]:
-    """
-    Extracts defined fields from a 'session' FIT message frame.
-    Converts positional data (lat/long) using the global DIVISOR.
-
-    Args:
-        frame (fitdecode.FitDataMessage): The FIT message frame.
-
-    Returns:
-        dict: Dictionary of extracted session data.
-    """
-    data = {}
-
-    # NOTE: converting from semicircles/degrees to true lat and longs. just because it's easier to play around with the data without converting everytime.
-    # This is meant to store data for one person, so precision and computational savings don't matter much to me as ease of use
-    # It would be more efficient to do perform vector multiplication on the Series insead of each individual point like below
-    for field in session[:5]:
-        if frame.has_field(field):
-            data[field] = frame.get_value(field) / DIVISOR
-
-    for field in session[6:]:
-        if frame.has_field(field):
-            data[field] = frame.get_value(field)
-    return data
-
-
 def get_fit_other_data(col: list[str], frame: fitdecode.FitDataMessage) -> dict[str, Any]:
     """
     Generic extraction for other FIT message types (file_id, activity, etc.).
@@ -364,7 +347,9 @@ def get_fit_other_data(col: list[str], frame: fitdecode.FitDataMessage) -> dict[
     return data
 
 
-def create_safe_df(data: list[dict], columns: list[str], df_name: str, activity_id: str | None) -> pd.DataFrame:
+def create_safe_df(
+    data: list[dict], columns: list[str], df_name: str, activity_id: str | None
+) -> pd.DataFrame:
     """
     Creates a Pandas DataFrame safely, catching and logging any errors.
 
@@ -395,7 +380,11 @@ def create_safe_df(data: list[dict], columns: list[str], df_name: str, activity_
 # -------------------------
 
 
-def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def get_dataframes(
+    fname: str, activity_id: str | None = None
+) -> tuple[
+    pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
+]:
     """
     Reads a FIT file and produces DataFrames for:
     lap, record, file_id, activity, session, length.
@@ -426,12 +415,18 @@ def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataF
     # just initially the intensity value for a lap. it may be present
     has_intensity = False
 
-    # Iterate through the FIT file. This iterates through every possible frame, not just the ones I have a table for.
-    # This is good for exploration, but for efficiency, it would be better to only loop for the records you want explicitly.
-    # I have made a custom schema to intensities are in the lap table
+    # Iterate through the FIT file. `fitdecode` yields every frame type in the
+    # file, but the schema only uses the names in WANTED_MESSAGE_NAMES. We skip
+    # unwanted data messages early so intensity/wkt_step_index probing and the
+    # per-name dispatch below only run on frames that can contribute output.
+    # NOTE: `workout_step` is intentionally kept: it carries the `intensity`
+    # values the lap intensity-matching logic relies on (see below).
     with fitdecode.FitReader(fname) as fit_file:
         for frame in fit_file:
             if not isinstance(frame, fitdecode.records.FitDataMessage):
+                continue
+
+            if frame.name not in WANTED_MESSAGE_NAMES:
                 continue
 
             # Capture intensity and workout step index if present
@@ -462,7 +457,8 @@ def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataF
                 activity_data.append(get_fit_other_data(activity, frame))
 
             elif frame.name == "session":
-                # session_data.append(get_fit_session_data(frame))
+                # Semicircle -> degree conversion for lat/long happens once,
+                # vectorized, in post-processing below (not per-frame here).
                 session_data.append(get_fit_other_data(session, frame))
 
             elif frame.name == "length":
@@ -495,9 +491,7 @@ def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataF
 
         # Map intensity values back to the full list based on WSI
         paired = list(zip(unique_wsi_vals, filtered_list))
-        result_intensity = [
-            word for number in wsi for num, word in paired if number == num
-        ]
+        result_intensity = [word for number in wsi for num, word in paired if number == num]
 
         # Assign to lap_df if lengths match, otherwise fill with None
         if len(result_intensity) == len(lap_df):
@@ -510,18 +504,10 @@ def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataF
         activity_df = pd.DataFrame(activity_data, columns=activity)
     except Exception as e:
         raise ValueError(f"CRITICAL: activity_df failed: {e}")
-    record_df = create_safe_df(
-        record_data, record, "record_df", activity_id=activity_id
-    )
-    file_id_df = create_safe_df(
-        file_id_data, file_id, "file_id_df", activity_id=activity_id
-    )
-    session_df = create_safe_df(
-        session_data, session, "session_df", activity_id=activity_id
-    )
-    length_df = create_safe_df(
-        length_data, length, "length_df", activity_id=activity_id
-    )
+    record_df = create_safe_df(record_data, record, "record_df", activity_id=activity_id)
+    file_id_df = create_safe_df(file_id_data, file_id, "file_id_df", activity_id=activity_id)
+    session_df = create_safe_df(session_data, session, "session_df", activity_id=activity_id)
+    length_df = create_safe_df(length_data, length, "length_df", activity_id=activity_id)
     event_df = create_safe_df(event_data, event, "event_df", activity_id=activity_id)
 
     # Post-processing: Date formatting and fallbacks
@@ -533,21 +519,15 @@ def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataF
 
         if pd.isna(file_id_df.iloc[0]["time_created"]):
             if not activity_df.empty and "timestamp" in activity_df.columns:
-                fallback_time = pd.to_datetime(
-                    activity_df.iloc[0]["timestamp"], utc=True
-                )
+                fallback_time = pd.to_datetime(activity_df.iloc[0]["timestamp"], utc=True)
                 file_id_df.loc[0, "time_created"] = fallback_time
 
     # NOTE: converting lat and long from ints into floats.
     lat_long_cols_session = session[:6]
-    session_df[lat_long_cols_session] = (
-        session_df[lat_long_cols_session].astype(float) / DIVISOR
-    )
+    session_df[lat_long_cols_session] = session_df[lat_long_cols_session].astype(float) / DIVISOR
 
     lat_long_cols_record = ["latitude", "longitude"]
-    record_df[lat_long_cols_record] = (
-        record_df[lat_long_cols_record].astype(float) / DIVISOR
-    )
+    record_df[lat_long_cols_record] = record_df[lat_long_cols_record].astype(float) / DIVISOR
 
     # NOTE: calculating lap numbers for record df based if the distance has surpassed the cumulative distance for each lap from the lap df
     if not record_df.empty:
@@ -555,12 +535,15 @@ def get_dataframes(fname: str, activity_id: str | None = None) -> tuple[pd.DataF
         lap_indices = np.searchsorted(lap_bounds, record_df["distance"].values)
         record_df["lap"] = lap_indices + 1
 
-    # Counting swimming laps to start at 1 and increment at active laps (not recovery laps)
-    length_df["message_index"] = length_df["message_index"] + 1
-
-    for idx, row in length_df.iterrows():
-        if row["length_type"] != "active":
-            length_df.loc[idx:, "message_index"] -= 1
+    # Counting swimming laps to start at 1 and increment only at active lengths
+    # (recovery/rest lengths repeat the previous count). This is the running
+    # number of active lengths seen so far, so a cumulative sum of the
+    # `length_type == "active"` flag reproduces the original per-row decrement
+    # loop exactly (int64, starting at 1 on the first active length).
+    # Guard the empty (non-swim) case so the untouched object-dtype column is
+    # preserved, matching the original `message_index + 1` no-op on empty frames.
+    if not length_df.empty:
+        length_df["message_index"] = (length_df["length_type"] == "active").cumsum()
 
     # This should only be true for files from garmin connect.
     if activity_id:
