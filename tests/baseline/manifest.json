@@ -1,0 +1,300 @@
+{
+  "files": {
+    "Activity__2025-07-27-07-19-09": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-07-27-07-19-09.fit"
+    },
+    "Activity__2025-07-27-14-28-55": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-07-27-14-28-55.fit"
+    },
+    "Activity__2025-07-29-19-08-25": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-07-29-19-08-25.fit"
+    },
+    "Activity__2025-07-30-06-11-36": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-07-30-06-11-36.fit"
+    },
+    "Activity__2025-07-31-06-42-50": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-07-31-06-42-50.fit"
+    },
+    "Activity__2025-07-31-17-18-07": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-07-31-17-18-07.fit"
+    },
+    "Activity__2025-08-01-17-15-03": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-08-01-17-15-03.fit"
+    },
+    "Activity__2025-08-02-08-36-23": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-08-02-08-36-23.fit"
+    },
+    "Activity__2025-08-03-13-45-09": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2025-08-03-13-45-09.fit"
+    },
+    "Activity__2026-02-15-08-41-50": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2026-02-15-08-41-50.fit"
+    },
+    "Activity__2026-02-16-06-21-35": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/Activity/2026-02-16-06-21-35.fit"
+    },
+    "cycling__2022-06-09T11.26.06_00.00_8983936914": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": false,
+      "source": "example activities/cycling/2022-06-09T11.26.06+00.00_8983936914.fit"
+    },
+    "cycling__2025-04-23T11.21.12_00.00_18911339697": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": false,
+      "source": "example activities/cycling/2025-04-23T11.21.12+00.00_18911339697.fit"
+    },
+    "multi_sport__2025-08-09T12.38.39_00.00_20004625776": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": false,
+      "source": "example activities/multi sport/2025-08-09T12.38.39+00.00_20004625776.fit"
+    },
+    "multi_sport__2025-10-09T22.20.39_00.00_20641745871": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": false,
+      "source": "example activities/multi sport/2025-10-09T22.20.39+00.00_20641745871.fit"
+    },
+    "run__2025-10-06T15.16.53_00.00_20607236047": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": false,
+      "source": "example activities/run/2025-10-06T15.16.53+00.00_20607236047.fit"
+    },
+    "track__2025-11-09-06-41-40": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/run/track/2025-11-09-06-41-40.fit"
+    },
+    "track__2025-11-16-07-50-48": {
+      "formats": {
+        "activity": "parquet",
+        "event": "pickle",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/run/track/2025-11-16-07-50-48.fit"
+    },
+    "track__2025-11-22-08-06-29": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/run/track/2025-11-22-08-06-29.fit"
+    },
+    "track__2025-12-06-10-23-21": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/run/track/2025-12-06-10-23-21.fit"
+    },
+    "track__2025-12-09-06-22-25": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/run/track/2025-12-09-06-22-25.fit"
+    },
+    "track__2025-12-14-09-47-42": {
+      "formats": {
+        "activity": "parquet",
+        "event": "parquet",
+        "file_id": "parquet",
+        "lap": "parquet",
+        "length": "parquet",
+        "record": "parquet",
+        "session": "parquet"
+      },
+      "is_watch": true,
+      "source": "example activities/run/track/2025-12-14-09-47-42.fit"
+    }
+  },
+  "skipped": {},
+  "table_names": [
+    "lap",
+    "record",
+    "file_id",
+    "activity",
+    "session",
+    "length",
+    "event"
+  ]
+}

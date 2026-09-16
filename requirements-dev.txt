@@ -1,0 +1,21 @@
+# Development / testing dependencies.
+# Install into the project virtualenv, e.g.:
+#   ./.venv/bin/pip install -r requirements-dev.txt
+#
+# Versions are pinned to what the project virtualenv currently ships so the
+# regression baseline (parquet snapshots) stays reproducible across machines.
+
+# Test runner
+pytest==9.1.1
+
+# Parquet serialization for golden-baseline DataFrame snapshots
+pyarrow==25.0.1
+
+# Formatter + linter (see pyproject.toml [tool.ruff])
+ruff==0.16.8
+
+# Static type checker (see pyproject.toml [tool.mypy])
+mypy==2.3.1
+
+# SQL formatting / linting for the *.sql files (dialect: postgres)
+sqlfluff==4.3.0
