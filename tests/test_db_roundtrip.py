@@ -148,6 +148,48 @@ def test_activity_returns_id_and_conflict_no_dup(conn: psycopg.Connection) -> No
     assert count == 1  # conflict did not duplicate
 
 
+def test_local_timestamp_is_tz_naive_wall_clock(conn: psycopg.Connection) -> None:
+    """local_timestamp stores the tz-stripped wall clock, session-TZ-independent.
+
+    ``local_timestamp`` is a ``timestamp without time zone`` column holding the
+    athlete's local wall-clock time. Binding a tz-aware value directly would let
+    psycopg adapt it as timestamptz and Postgres shift it to the session
+    TimeZone before casting — storing the wrong hour. ``insert_activity`` strips
+    the tz first, so the stored value must equal the naive wall clock (08:00)
+    regardless of the session TimeZone. The tz-aware ``timestamp`` column must be
+    unaffected.
+    """
+    # Force a non-UTC session TimeZone; a naive local_timestamp must not shift.
+    with conn.cursor() as cur:
+        cur.execute("SET TimeZone TO 'America/Chicago'")
+    conn.commit()
+
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 7002,
+                # tz-aware timestamptz column; wall clock 08:00 at +02:00 == 06:00 UTC.
+                "timestamp": pd.Timestamp("2025-01-01 08:00:00", tz="Etc/GMT-2"),
+                # tz-aware LOCAL wall clock; must land as naive 08:00, not shifted.
+                "local_timestamp": pd.Timestamp("2025-01-01 08:00:00", tz="Etc/GMT-2"),
+                "num_sessions": 1,
+                "type": "manual",
+            }
+        ]
+    )
+    new_id = insert_activity(df, conn)
+    assert new_id == 7002
+
+    with conn.cursor() as cur:
+        cur.execute('SELECT local_timestamp, "timestamp" FROM activity WHERE activity_id = 7002')
+        local_ts, ts = _fetchone(cur)
+
+    # Stored local_timestamp is the tz-naive wall clock, independent of session TZ.
+    assert local_ts == pd.Timestamp("2025-01-01 08:00:00").to_pydatetime()
+    # The timestamptz column is unaffected: 08:00 +02:00 == 06:00 UTC.
+    assert ts == pd.Timestamp("2025-01-01 06:00:00", tz="UTC").to_pydatetime()
+
+
 def test_event_executemany_null_and_apostrophe(conn: psycopg.Connection) -> None:
     """event insert via executemany: NaN → NULL, SQL-like text bound safely."""
     # A parent activity is required for FK-free schema here, but our test event
