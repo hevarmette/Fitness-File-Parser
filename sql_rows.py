@@ -204,6 +204,55 @@ def _to_none_if_missing(value: Any) -> Any:
     return value
 
 
+def strip_local_timestamp_tz(df: pd.DataFrame) -> pd.DataFrame:
+    """Return ``df`` with ``local_timestamp`` reduced to a tz-naive wall clock.
+
+    ``activity.local_timestamp`` is a ``timestamp without time zone`` column
+    holding the athlete's LOCAL wall-clock time. ``fitdecode`` yields it as the
+    local wall clock *labeled* UTC (e.g. a 06:11:36 local activity arrives as
+    ``2025-07-30 06:11:36+00:00``). If a tz-aware value reaches the database, the
+    parameterized driver adapts it as ``timestamptz`` and Postgres shifts it to
+    the session ``TimeZone`` before casting to the naive column — storing the
+    wrong hour (e.g. 01:11:36 under ``America/Chicago``). So we must drop the tz
+    and keep the wall clock as-is.
+
+    The column can arrive either as a ``datetime64[ns, tz]`` dtype *or* as an
+    ``object`` column holding tz-aware ``datetime``/``Timestamp`` values (this
+    happens for some single-row / mixed / ``NaT``-containing activities). Both
+    must be handled. We normalize via :func:`pd.to_datetime` (a harmless no-op
+    for an already-naive datetime column) and only strip the tz when the result
+    is tz-aware, so the already-working ``datetime64[ns, UTC]`` case yields the
+    exact same naive wall clock as before.
+
+    Only ``local_timestamp`` is touched — the true ``timestamptz`` ``timestamp``
+    column and every other column are left unchanged. The caller's DataFrame is
+    never mutated: a copy is made only when a change is needed.
+
+    Args:
+        df: An ``activity`` DataFrame that may carry ``local_timestamp``.
+
+    Returns:
+        pd.DataFrame: ``df`` unchanged when there is nothing to strip, otherwise
+        a copy whose ``local_timestamp`` is a tz-naive ``datetime64[ns]`` column.
+    """
+    if "local_timestamp" not in df.columns:
+        return df
+
+    # Normalize object-dtype (possibly tz-aware) values into a datetime Series;
+    # for an already-naive datetime column this is a harmless no-op.
+    normalized = pd.to_datetime(df["local_timestamp"], errors="coerce")
+
+    if getattr(normalized.dtype, "tz", None) is not None:
+        # tz-aware (datetime64tz, or coerced from aware objects): drop the tz to
+        # keep the naive local wall clock the schema column expects.
+        result = df.copy()
+        result["local_timestamp"] = normalized.dt.tz_localize(None)
+        return result
+
+    # Already tz-naive: leave the caller's DataFrame untouched.
+    return df
+
+
 def dataframe_to_rows(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, ...]]:
     """Convert a DataFrame into value tuples in a fixed column order.
 

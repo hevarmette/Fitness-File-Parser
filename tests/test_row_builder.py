@@ -12,6 +12,8 @@ invariants are:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import numpy as np
 import pandas as pd
 
@@ -21,7 +23,9 @@ from sql_rows import (
     activity_columns,
     dataframe_to_rows,
     format_sql_value,
+    strip_local_timestamp_tz,
 )
+from watch_files_to_sql import write_sql_statement_to_file
 
 
 def test_table_columns_covers_six_fixed_tables() -> None:
@@ -258,3 +262,88 @@ def test_fallback_formatter_matches_row_builder_effect() -> None:
             assert literal == "'" + str(value).replace("'", "''") + "'"
         else:
             assert literal == str(value)
+
+
+def test_strip_local_timestamp_tz_object_dtype_aware() -> None:
+    """Object-dtype tz-aware local_timestamp is reduced to a naive wall clock.
+
+    Regression for the timestamp bug: fitdecode yields ``local_timestamp`` as
+    the local wall clock labeled UTC (06:11:36+00:00 for a 06:11 local
+    activity). For some single-row / mixed / NaT activities the column arrives
+    as ``object`` dtype, which the old too-narrow ``datetime64[ns, tz]`` guard
+    skipped — letting a tz-aware value reach the naive column and shift the
+    hour. The strip must keep the naive wall clock 06:11:36 regardless of dtype.
+    """
+    aware = datetime(2025, 7, 30, 6, 11, 36, tzinfo=timezone.utc)
+    df = pd.DataFrame([{"activity_id": 1, "local_timestamp": aware}])
+    # Force the object-dtype path that the narrow guard used to miss.
+    df["local_timestamp"] = df["local_timestamp"].astype(object)
+    assert df["local_timestamp"].dtype == object
+
+    stripped = strip_local_timestamp_tz(df)
+
+    result = stripped["local_timestamp"].iloc[0]
+    # tz dropped, wall clock preserved (not shifted).
+    assert result == pd.Timestamp("2025-07-30 06:11:36")
+    assert result.tzinfo is None
+    # Caller's DataFrame is not mutated (still object-dtype, still tz-aware).
+    assert df["local_timestamp"].iloc[0] == aware
+
+
+def test_strip_local_timestamp_tz_datetime64_aware_unchanged_value() -> None:
+    """The already-working datetime64[ns, UTC] case yields the same naive value."""
+    df = pd.DataFrame(
+        [{"activity_id": 1, "local_timestamp": pd.Timestamp("2025-07-30 06:11:36", tz="UTC")}]
+    )
+    assert str(df["local_timestamp"].dtype) == "datetime64[ns, UTC]"
+
+    stripped = strip_local_timestamp_tz(df)
+
+    result = stripped["local_timestamp"].iloc[0]
+    assert result == pd.Timestamp("2025-07-30 06:11:36")
+    assert result.tzinfo is None
+
+
+def test_strip_local_timestamp_tz_naive_is_noop() -> None:
+    """An already tz-naive local_timestamp is left untouched (same object)."""
+    df = pd.DataFrame([{"activity_id": 1, "local_timestamp": pd.Timestamp("2025-07-30 06:11:36")}])
+    stripped = strip_local_timestamp_tz(df)
+    # No change needed → the helper returns the same DataFrame object.
+    assert stripped is df
+    assert stripped["local_timestamp"].iloc[0] == pd.Timestamp("2025-07-30 06:11:36")
+
+
+def test_strip_local_timestamp_tz_missing_column_is_noop() -> None:
+    """A DataFrame without local_timestamp is returned unchanged."""
+    df = pd.DataFrame([{"activity_id": 1, "timestamp": "2025-07-30T06:11:36+00:00"}])
+    assert strip_local_timestamp_tz(df) is df
+
+
+def test_offline_writer_object_dtype_local_timestamp_is_naive() -> None:
+    """Offline .sql writer renders an object-dtype tz-aware local_timestamp naive.
+
+    Proves Task 10's fallback path also drops the tz: the emitted literal is the
+    naive wall clock ``2025-07-30 06:11:36`` (no ``+00:00`` offset), matching
+    what the parameterized path binds into the naive schema column.
+    """
+    aware = datetime(2025, 7, 30, 6, 11, 36, tzinfo=timezone.utc)
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 42,
+                "timestamp": "2025-07-30T06:11:36",
+                "num_sessions": 1,
+                "type": "manual",
+                "local_timestamp": aware,
+            }
+        ]
+    )
+    df["local_timestamp"] = df["local_timestamp"].astype(object)
+    assert df["local_timestamp"].dtype == object
+
+    sql = write_sql_statement_to_file(df, "activity", return_sql=True)
+    assert sql is not None
+    # local_timestamp renders as the naive wall clock literal, no tz offset.
+    assert "'2025-07-30 06:11:36'" in sql
+    # No tz-aware local_timestamp literal leaked through.
+    assert "'2025-07-30 06:11:36+00:00'" not in sql

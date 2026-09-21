@@ -22,6 +22,7 @@ from sql_rows import (
     TABLE_COLUMNS,
     activity_columns,
     format_sql_value,
+    strip_local_timestamp_tz,
 )
 
 # Columns that must be emitted as quoted string/timestamp literals in the
@@ -159,11 +160,10 @@ def write_sql_statement_to_file(
     # --- Activity Table (dynamic activity_id + tz-naive local_timestamp) ---
     if tabl == "activity":
         # Remove timezone from local_timestamp if present so it maps to the
-        # schema's `timestamp without time zone` column.
-        if "local_timestamp" in df.columns and df["local_timestamp"].dtype.name.startswith(
-            "datetime64[ns,"
-        ):
-            df["local_timestamp"] = df["local_timestamp"].dt.tz_localize(None)
+        # schema's `timestamp without time zone` column. Handles both the
+        # datetime64[ns, tz] dtype and object columns holding tz-aware
+        # datetimes; an already-naive column passes through unchanged.
+        df = strip_local_timestamp_tz(df)
 
         # Include activity_id only when the first row carries a real id; we
         # assume the batch is homogeneous. Otherwise the DB auto-increments.

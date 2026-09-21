@@ -30,6 +30,7 @@ from sql_rows import (
     build_insert_sql,
     copy_columns_sql,
     dataframe_to_rows,
+    strip_local_timestamp_tz,
 )
 
 
@@ -56,14 +57,12 @@ def insert_activity(df: pd.DataFrame, conn: psycopg.Connection) -> int | None:
     # local_timestamp maps to a `timestamp without time zone` column and holds
     # the athlete's local wall-clock time. Strip any timezone before binding so
     # psycopg does not adapt it as timestamptz (which would let Postgres shift
-    # the value to the session TimeZone before casting). This mirrors the
-    # offline path in watch_files_to_sql.py so both persist the same tz-naive
-    # wall clock. Copy first so we never mutate the caller's DataFrame.
-    if "local_timestamp" in df.columns and df["local_timestamp"].dtype.name.startswith(
-        "datetime64[ns,"
-    ):
-        df = df.copy()
-        df["local_timestamp"] = df["local_timestamp"].dt.tz_localize(None)
+    # the value to the session TimeZone before casting). This handles both the
+    # datetime64[ns, tz] dtype and object columns holding tz-aware datetimes,
+    # and mirrors the offline path in watch_files_to_sql.py so both persist the
+    # same tz-naive wall clock. The helper copies before mutating, so the
+    # caller's DataFrame is never modified.
+    df = strip_local_timestamp_tz(df)
 
     # activity_id is bound only when the first row supplies a real value; the
     # writer assumes the batch is homogeneous.

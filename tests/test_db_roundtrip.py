@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Iterator
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -188,6 +189,53 @@ def test_local_timestamp_is_tz_naive_wall_clock(conn: psycopg.Connection) -> Non
     assert local_ts == pd.Timestamp("2025-01-01 08:00:00").to_pydatetime()
     # The timestamptz column is unaffected: 08:00 +02:00 == 06:00 UTC.
     assert ts == pd.Timestamp("2025-01-01 06:00:00", tz="UTC").to_pydatetime()
+
+
+def test_local_timestamp_object_dtype_aware_under_chicago(conn: psycopg.Connection) -> None:
+    """Object-dtype tz-aware local_timestamp stores the naive wall clock.
+
+    This is the confirmed regression: fitdecode yields ``local_timestamp`` as
+    the local wall clock labeled UTC (``2025-07-30 06:11:36+00:00``), and for
+    some single-row / mixed / NaT activities the column arrives as ``object``
+    dtype. The old ``datetime64[ns, tz]``-only guard skipped that case, so the
+    tz-aware value was bound into the ``timestamp without time zone`` column and
+    Postgres shifted it to the session TimeZone — under ``America/Chicago`` a
+    06:11:36 activity was stored as 01:11:36. With the fix the stored value must
+    be the naive 06:11:36 regardless of session TZ, and the tz-aware
+    ``timestamp`` column must be unaffected.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SET TimeZone TO 'America/Chicago'")
+    conn.commit()
+
+    aware = datetime(2025, 7, 30, 6, 11, 36, tzinfo=timezone.utc)
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 8003,
+                "timestamp": pd.Timestamp("2025-07-30 06:11:36", tz="UTC"),
+                "local_timestamp": aware,
+                "num_sessions": 1,
+                "type": "manual",
+            }
+        ]
+    )
+    # Force the object-dtype path that the narrow guard used to miss.
+    df["local_timestamp"] = df["local_timestamp"].astype(object)
+    assert df["local_timestamp"].dtype == object
+
+    new_id = insert_activity(df, conn)
+    assert new_id == 8003
+
+    with conn.cursor() as cur:
+        cur.execute('SELECT local_timestamp, "timestamp" FROM activity WHERE activity_id = 8003')
+        local_ts, ts = _fetchone(cur)
+
+    # Must be the naive 06:11:36 wall clock, NOT the shifted 01:11:36.
+    assert local_ts == pd.Timestamp("2025-07-30 06:11:36").to_pydatetime()
+    assert local_ts != pd.Timestamp("2025-07-30 01:11:36").to_pydatetime()
+    # timestamptz column unaffected.
+    assert ts == pd.Timestamp("2025-07-30 06:11:36", tz="UTC").to_pydatetime()
 
 
 def test_event_executemany_null_and_apostrophe(conn: psycopg.Connection) -> None:
