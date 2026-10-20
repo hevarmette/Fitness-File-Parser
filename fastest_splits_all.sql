@@ -1,3 +1,9 @@
+/**
+    This function can search through thousands of activities in seconds to
+    find the fastest time a user has covered some distance, p_event_distance.
+    I look through ~4000 activities for a single user in about ~20-30 seconds.
+**/
+
 CREATE OR REPLACE FUNCTION shortest_duration_for_distance_all(
     p_event_distance NUMERIC(10, 3),
     p_activity_ids   BIGINT[] DEFAULT NULL   -- NULL = all activities
@@ -11,17 +17,19 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    -- 1 & 2: materialize record -> session assignment once, indexed.
+    -- this is a more efficient way to find the fastest effort for a specified
+    -- distance per session of an activity than the original
+    -- fastest_efforts.sql file. it materializes a record per session
+    -- assignment once, indexed.
     --
-    -- Fix #1 (LATERAL fan-out): compute each session's window with a single
-    -- LEAD() over sessions, one row per session, instead of an uncorrelated
-    -- lateral that fanned every activity record into every session.
+    -- compute each session's window with a single
+    -- LEAD() over sessions, one row per session
     --
-    -- Fix #2 (cumulative distance rebase): record.distance is an activity-wide
+    -- cumulative distance rebase: record.distance is an activity-wide
     -- odometer, so we subtract each session's first distance to get the
-    -- distance covered *within* that session (session_distance).
+    -- distance covered within that session (session_distance).
     --
-    -- Fix #5 (NULL distance): exclude NULL-distance records explicitly.
+    -- also be sure to exclude NULL-distance records!
     CREATE TEMP TABLE _session_records ON COMMIT DROP AS
     WITH session_bounds AS (
         SELECT
@@ -53,7 +61,7 @@ BEGIN
     CREATE INDEX ON _session_records (session_id, session_distance, timestamp);
     ANALYZE _session_records;
 
-    -- 3 & 4: index-probe matching, then rank per activity+sport.
+    -- index-probe matching, then rank per activity+sport.
     RETURN QUERY
     WITH best_pairs AS (
         SELECT
@@ -66,9 +74,9 @@ BEGIN
             SELECT c.timestamp
             FROM _session_records c
             WHERE c.session_id = a.session_id
-              -- Fix #2/#7: compare rebased distance in double precision
+              -- compare rebased distance in double precision
               AND c.session_distance <= a.session_distance - p_event_distance::double precision
-              -- Fix #4: the start point must precede the end point, so flat /
+              -- the start point must precede the end point, so flat /
               -- stationary stretches can't yield zero or negative durations.
               AND c.timestamp < a.timestamp
             ORDER BY c.session_distance DESC, c.timestamp DESC
@@ -80,7 +88,7 @@ BEGIN
             bp.*,
             ROW_NUMBER() OVER (
                 PARTITION BY bp.activity_id, bp.sport
-                -- Fix #8: deterministic tie-break on start_time
+                -- deterministic tie-break on start_time
                 ORDER BY bp.duration, bp.start_time
             ) AS rn
         FROM best_pairs bp
