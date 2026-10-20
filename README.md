@@ -1,18 +1,17 @@
 # Fitness File Parser
 
-This is from a project I did in school, I only maintain .fit file support now. '.tcx' and '.gpx' files will probably not work now.
+This is from a project I did in school, I only maintain .fit file support now.
 
 TODO: It would be better to load activities if their id does not exist in the database (for garmin connect) or if there is no activity with the same start time (for the watch) (and maybe duration or something to identify if it's the same activity or not)
 
-Parse `.fit`, `.tcx`, and `.gpx` activity files into a PostgreSQL database. Designed for personal fitness data warehousing — extract lap, record, session, and event data from your watch exports and store them in a relational schema for analysis. I have only tested Garmin .fit files. See the FIT SDK from Garmin to see how the file is structured and how to add additional frames/fields for other manufacturers, if the parser does not work.
+Parse `.fit` activity files into a PostgreSQL database. Designed for personal fitness data warehousing — extract lap, record, session, and event data from your watch exports and store them in a relational schema for analysis. I have only tested Garmin .fit files. See the FIT SDK from Garmin to see how the file is structured and how to add additional frames/fields for other manufacturers, if the parser does not work.
 
-I connect the database to a [streamlit application](https://github.com/hevarmette/Activity-Calendar)
-
-![ERD](garmin_data_full_erd.png)
+I connect the database to a [locally hosted website](https://github.com/hevarmette/Activity-Calendar) to display results and analyze activities.
 
 ## Features
 
-- Parse `.fit` files from Garmin watches (direct USB export) or Garmin Connect (bulk export with JSON metadata)
+- Parse `.fit` files from Garmin watches (direct USB export) or Garmin Connect ([bulk export with JSON metadata](https://github.com/petergardfjall/garminexport))
+    - Garmin export (the link above) is now deprecated, although it still works for me, so I recommend just exporting from watch to PC or downloading your data from Garmin Connect. I use [Gadgetbridge](https://gadgetbridge.org) to automatically get the .fit files off my watch, but that's another story.
 - Automatic activity naming via reverse geocoding (OSM Nominatim)
 - Fallback to SQL file output when database is unavailable
 - Incremental loading — only processes files newer than the latest activity in the database
