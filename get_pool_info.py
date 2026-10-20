@@ -1,9 +1,10 @@
-from datetime import datetime
-from typing import Dict, Union, Optional, Tuple
 import os
-import pandas as pd
+from datetime import datetime
+
 import fitdecode
+import pandas as pd
 from dotenv import load_dotenv
+
 from helpers import get_conn
 
 load_dotenv()
@@ -64,12 +65,12 @@ def load_dataframe_to_postgres(df, tabl):
 
 def get_fit_other_data(
     col, frame: fitdecode.records.FitDataMessage
-) -> Optional[Dict[str, Union[float, int, str, datetime]]]:
+) -> dict[str, float | int | str | datetime] | None:
     """Extract the data point from other FIT frames(file_id, session, activity)
     with the use of column names and return a relevant Pandas DataFrame
     """
 
-    data: Dict[str, Union[float, int, str, datetime]] = {}
+    data: dict[str, float | int | str | datetime] = {}
 
     for field in col:
         if frame.has_field(field):
@@ -77,7 +78,7 @@ def get_fit_other_data(
     return data
 
 
-def get_dataframes(fname: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_dataframes(fname: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Takes the path to a FIT file (as a string) and returns two Pandas
     DataFrames: one containing data about the laps, and one containing
     data about the individual points.
@@ -112,9 +113,9 @@ def extract_date_from_filename(filename):
 
 
 if __name__ == "__main__":
+    from datetime import datetime
     from os import listdir
     from os.path import isfile, join
-    from datetime import datetime
 
     # latest date in the database
     # Query the latest timestamp from the activity table before today
@@ -132,13 +133,13 @@ if __name__ == "__main__":
                 print("No activity found before today")
                 exit(1)
 
-    files = [
-        f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
-    ]
+    files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
 
     errors = []
-    index = [0]
     for file in files:
+        # Default so the except block can still name the offending file even if
+        # activity-id extraction itself is what failed.
+        activity_id = file
         try:
             # fname = dir+"\\"+file# WINDOWS
             fname = dir + file  # LINUX
@@ -148,8 +149,16 @@ if __name__ == "__main__":
             # print('user_activity:', activity_id)
             # load to DB
             load_dataframe_to_postgres(session_df, "session")
-            # ERRORS ['10779726137', '10636216438', '10528926754', '8123112565', '6947713945', '11510943425', '13840205941', '15855828516', '16371670919', '16313355920', '16533124109', '16558142255', '16576282783', '16594262279', '16663462353', '16619751226', '16628552969']
-        except:
+        except Exception as exc:
+            # Log the offending activity_id and the reason, then continue the
+            # batch so one bad file does not abort the whole backfill. We catch
+            # Exception (not a bare except) so KeyboardInterrupt/SystemExit still
+            # propagate. The reason is a decode/DB error, never the connection
+            # string, so nothing secret is logged.
+            print(f"[ERROR] Skipping activity {activity_id}. Reason: {exc}")
+            log_file_path = os.path.join(os.path.dirname(__file__), "errors.txt")
+            with open(log_file_path, "a") as log_file:
+                log_file.write(f"\n{activity_id} - SKIPPED POOL INFO: {exc}")
             errors.append(activity_id)
     print("finished")
     print("errors")

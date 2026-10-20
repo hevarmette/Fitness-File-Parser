@@ -4,36 +4,33 @@
 
 from __future__ import annotations
 
+import os
+import time
+from datetime import datetime, timezone
 from os import listdir
 from os.path import isfile, join
-from datetime import datetime, timezone
+
+import pandas as pd
+import psycopg
+import requests
+from dotenv import load_dotenv
+
+from db_insert import insert_activity, insert_table
 from helpers import (
     extract_date_from_filename_connect,
     extract_date_from_filename_watch,
-    get_dataframes,
-    get_conn,
     get_after_date,
+    get_conn,
+    get_dataframes,
 )
 from watch_files_to_sql import write_sql_statement_to_file
-import requests
-import time
-import psycopg
-import pandas as pd
-from dotenv import load_dotenv
-import os
 
 # -------------------------
-# CONFIGURATION & DB CONNECTION
+# CONFIGURATION
 # -------------------------
+# NOTE: The database connection is created inside the __main__ entry point via
+# get_conn(), not at import time. Importing this module must never touch the DB.
 load_dotenv()
-database_url = os.getenv("DB_UI_LOCAL")
-schema = os.getenv("SCHEMA")
-conn = psycopg.connect(database_url, options=f"-c search_path={schema}")
-cur = conn.cursor()
-cur.execute(
-    "SELECT MAX(timestamp) FROM activity where timestamp < NOW() AT TIME ZONE 'UTC';"
-)
-after_date = cur.fetchone()[0]
 
 
 def reverse_geocode(lat: float, lon: float) -> tuple[str | None, str | None]:
@@ -65,9 +62,7 @@ def reverse_geocode(lat: float, lon: float) -> tuple[str | None, str | None]:
         # OSM fair use policy — 1 request per second minimum
         time.sleep(1)
 
-        response = requests.get(
-            url, params=params, headers={"User-Agent": "fit-parser"}
-        )
+        response = requests.get(url, params=params, headers={"User-Agent": "fit-parser"})
         data = response.json()
 
         addr = data.get("address", {})
@@ -131,68 +126,38 @@ def build_default_activity_name(session_df: pd.DataFrame, activity_df: pd.DataFr
     return f"{location} {sport_name}"
 
 
-def db_insert_dataframe(df: pd.DataFrame, table: str, conn: psycopg.Connection, return_id: bool = False) -> int | bool | None:
+def db_insert_dataframe(
+    df: pd.DataFrame, table: str, conn: psycopg.Connection, return_id: bool = False
+) -> int | bool | None:
     """
-    Inserts a dataframe into Postgres using the generated SQL string from write_sql_statement_to_file.
+    Inserts a DataFrame into Postgres using parameterized statements.
+
+    Values are bound via psycopg placeholders (executemany, or COPY for the
+    large ``record`` table), so NaN/NaT become SQL NULL and text is safe from
+    apostrophes / SQL-like content. The ``activity`` table preserves its
+    ``ON CONFLICT (activity_id) DO NOTHING`` / ``RETURNING activity_id`` behavior.
 
     Args:
         df (pd.DataFrame): The DataFrame to insert.
         table (str): The target SQL table name.
         conn (psycopg.connection): The database connection object.
-        return_id (bool, optional): If True, appends 'RETURNING activity_id' to the SQL
-                                    and returns the ID. Defaults to False.
+        return_id (bool, optional): If True, inserts the ``activity`` row and
+                                    returns its generated activity_id.
 
     Returns:
         int | bool | None:
-            - The new ID (int) if return_id=True and success.
+            - The new activity_id (int) if return_id=True and success.
             - True if bulk insert success.
             - None on failure, conflict (no ID returned), or empty DataFrame.
     """
     if df.empty:
         return None
 
-    # Generate the SQL string instead of writing to file
-    sql_statement = write_sql_statement_to_file(df, table, return_sql=True)
+    if return_id:
+        # Activity is inserted first to generate the FK the child tables need.
+        return insert_activity(df, conn)
 
-    if not sql_statement:
-        return None
-
-    try:
-        with conn.cursor() as cursor:
-            if return_id:
-                # Modify the generated SQL to return the ID.
-                # The generator typically ends with ";". We strip it to append RETURNING.
-                sql_to_run = sql_statement.strip()
-                if sql_to_run.endswith(";"):
-                    sql_to_run = sql_to_run[:-1]
-
-                # Append RETURNING if not present
-                if "RETURNING" not in sql_to_run.upper():
-                    sql_to_run += " RETURNING activity_id"
-
-                cursor.execute(sql_to_run)
-
-                # Fetch the ID.
-                # Note: If 'ON CONFLICT DO NOTHING' triggered, this result will be None.
-                result = cursor.fetchone()
-                conn.commit()
-
-                if result:
-                    return result[0]
-                else:
-                    print(
-                        f"[DB INFO] {table} insert skipped (conflict or no ID returned)."
-                    )
-                    return None
-            else:
-                cursor.execute(sql_statement)
-                conn.commit()
-                return True
-
-    except Exception as e:
-        print(f"[DB ERROR] Failed inserting into {table}: {e}")
-        conn.rollback()
-        return None
+    return True if insert_table(df, table, conn) else None
 
 
 def apply_activity_id_to_dfs(activity_id: int, dfs: list[pd.DataFrame]) -> None:
@@ -239,15 +204,15 @@ if __name__ == "__main__":
     dir = os.path.expandvars(raw_dir)
     file_extension = ".fit"
 
-    cur = get_conn()
-    after_date = get_after_date(cur)
+    # Connect exactly once per run. `conn` is module-global so insert_or_fallback
+    # (which reads the module-level `conn`) uses this same connection.
+    conn = get_conn()
+    after_date = get_after_date(conn)
     # Define date range for processing
     today = datetime.now(timezone.utc)
 
     # Get all .fit files in the directory
-    files = [
-        f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
-    ]
+    files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
 
     # Filter files based on the date range extracted from filename
     filtered_files = []
@@ -277,9 +242,7 @@ if __name__ == "__main__":
         # the following only works with one activity per activity_df and therefore one activity in session_df
         activity_df.loc[0, "adjusted_distance"] = session_df["total_distance"].sum()
         activity_df.loc[0, "adjusted_duration"] = session_df["total_timer_time"].sum()
-        activity_df.loc[0, "activity_name"] = build_default_activity_name(
-            session_df, activity_df
-        )
+        activity_df.loc[0, "activity_name"] = build_default_activity_name(session_df, activity_df)
 
         # ---------------------------
         # Insert ACTIVITY first
@@ -287,9 +250,7 @@ if __name__ == "__main__":
         # We insert Activity first to generate the Foreign Key (activity_id) needed for other tables
         print("Inserting activity...")
 
-        new_activity_id = db_insert_dataframe(
-            activity_df, "activity", conn, return_id=True
-        )
+        new_activity_id = db_insert_dataframe(activity_df, "activity", conn, return_id=True)
 
         # NOTE: This line forces the fallback logic regardless of success.
         # new_activity_id = None

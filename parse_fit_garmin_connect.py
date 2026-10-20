@@ -3,23 +3,25 @@ from __future__ import annotations
 
 # This file handles Garmin Connect files (summary JSON + FIT)
 import os
-import pandas as pd
+from datetime import datetime, timezone
 from os import listdir
 from os.path import isfile, join
-from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+import psycopg
+from dotenv import load_dotenv
+
+from db_insert import insert_activity, insert_table
 from helpers import (
     extract_date_from_filename_connect,
     extract_date_from_filename_watch,
-    get_user_activity_details,
-    get_json_info,
-    get_dataframes,
     get_after_date,
     get_conn,
+    get_dataframes,
+    get_json_info,
+    get_user_activity_details,
 )
-from dotenv import load_dotenv
-import psycopg
 from watch_files_to_sql import write_sql_statement_to_file
 
 # pd.set_option("display.max_columns", None)
@@ -27,69 +29,37 @@ from watch_files_to_sql import write_sql_statement_to_file
 
 def load_dataframe_to_postgres(df: pd.DataFrame, table: str, _conn: psycopg.Connection) -> bool:
     """
-    This will send decoded files directly to postgresql. I don't like this option as much because
-    postgres will send back NaN and NaT if missing, which other db engines may not support. If
-    you don't want to use postgres anyway.
+    Sends a decoded DataFrame directly to PostgreSQL using parameterized inserts.
 
-    :param df pd.DataFrame: data of table to upload
-    :param table string: table name of table for insertion
-    :param _conn connection: postgres connection
+    Values are bound via psycopg placeholders (executemany, or COPY for the
+    large ``record`` table), so NaN/NaT become SQL NULL and text is safe from
+    apostrophes / SQL-like content. The ``activity`` table keeps its
+    ``ON CONFLICT (activity_id) DO NOTHING`` behavior.
+
+    Args:
+        df (pd.DataFrame): data of table to upload
+        table (str): table name of table for insertion
+        _conn (psycopg.Connection): postgres connection
+
+    Returns:
+        bool: True on success (or empty DataFrame), False on failure.
     """
     if df.empty:
         print(f"[SKIP] {table}: dataframe is empty.")
         return True
 
-    # Convert all column names into SQL-compatible string
-    # columns = list(df.columns)
-    # col_names = ", ".join(columns)
-    #
-    # # Generate placeholders for psycopg (e.g., "%s, %s, %s")
-    # placeholders = ", ".join(["%s"] * len(columns))
-    #
-    # # Convert to list and replace NaN floats with None.
-    # rows = df.values.tolist()
-    # rows = [
-    #     [None if isinstance(val, float) and math.isnan(val) else val for val in row]
-    #     for row in rows
-    # ]
-    #
-    # try:
-    #     with _conn.cursor() as cursor:
-    #         insert_sql = f"INSERT INTO {tabl} ({col_names}) VALUES ({placeholders})"
-    #
-    #         cursor.executemany(insert_sql, rows)
-    #
-    #         _conn.commit()
-    #         print(f"[OK] Inserted {len(rows)} rows into {tabl}")
-    #         return True
-    #
-    # except Exception as e:
-    #     _conn.rollback()
-    #     print(f"[ERROR] Inserting into {tabl}: {e}")
-    #     # print(df.head(20))
-    #     return False
-
-    # Generate the SQL string instead of writing to file
-    sql_statement = write_sql_statement_to_file(df, table, return_sql=True)
-
-    if not sql_statement:
-        print("Creating sql statement failed for dataframe that was not empty")
+    # Garmin Connect files carry their own activity_id (from the filename), so
+    # the activity row is inserted with that id; a conflict is a no-op success.
+    if table == "activity":
+        insert_activity(df, _conn)
         return True
 
-    try:
-        with _conn.cursor() as cursor:
-            # cursor.execute(f"SET search_path to {schema};")
-            cursor.execute(sql_statement)
-            _conn.commit()
-            return True
-
-    except Exception as e:
-        print(f"[DB ERROR] Failed inserting into {table}: {e}")
-        _conn.rollback()
-        return False
+    return insert_table(df, table, _conn)
 
 
-def insert_or_fallback(df: pd.DataFrame, table: str, just_write_sql_file: bool, _conn: psycopg.Connection | None) -> None:
+def insert_or_fallback(
+    df: pd.DataFrame, table: str, just_write_sql_file: bool, _conn: psycopg.Connection | None
+) -> None:
     """
     Directly inserts data to database or it will simply write a file to local if anything fails
     are if the flag is to only write the file
@@ -133,11 +103,9 @@ if __name__ == "__main__":
     file_extension = ".fit"
 
     # Optional to only insert files between a certain date
-    today = datetime.now(ZoneInfo("America/Chicago"))#.date()
+    today = datetime.now(ZoneInfo("America/Chicago"))  # .date()
 
-    files = [
-        f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)
-    ]
+    files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
 
     filtered_files = []
     # f

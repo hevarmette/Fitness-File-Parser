@@ -1,0 +1,31 @@
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# test_sql_writer.py holds verbatim expected-SQL fixtures that must match the
+# generator's output byte-for-byte, so some string-literal lines exceed the
+# line-length limit and cannot be wrapped.
+"tests/test_sql_writer.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# These third-party libraries ship without type stubs in this environment.
+# Ignore the missing-import noise so mypy can still check first-party code.
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*", "numpy", "numpy.*", "fitdecode", "fitdecode.*", "dateutil", "dateutil.*", "psycopg", "dotenv"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Put the repo root on sys.path so tests can import the top-level modules
+# (helpers, watch_files_to_sql) and the tests/ dir provides conftest helpers.
+pythonpath = [".", "tests"]
+markers = [
+    "db: tests that require a live PostgreSQL database; skipped when DB_UI_LOCAL is unset.",
+]

@@ -1,0 +1,320 @@
+"""Round-trip DB tests for the parameterized insert path (:mod:`db_insert`).
+
+Marked ``@pytest.mark.db`` so the whole module auto-skips when ``DB_UI_LOCAL``
+is unset (see ``conftest.pytest_collection_modifyitems``). When a database is
+configured, each test builds an isolated throwaway schema, inserts through the
+real ``db_insert`` functions, reads the rows back, and drops the schema.
+
+The point is to prove:
+
+* ``NaN``/``NaT``/absent columns land as SQL ``NULL``.
+* Apostrophe / SQL-like text inserts verbatim via parameter binding (no
+  injection, no early string termination).
+* ``activity`` returns its generated ``activity_id`` and honors
+  ``ON CONFLICT (activity_id) DO NOTHING``.
+* The ``record`` table's ``COPY`` path stores the same values an INSERT would.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from collections.abc import Iterator
+from datetime import datetime, timezone
+
+import numpy as np
+import pandas as pd
+import psycopg
+import pytest
+
+from db_insert import insert_activity, insert_table
+
+pytestmark = pytest.mark.db
+
+
+def _fetchone(cur: psycopg.Cursor) -> tuple:
+    """Fetch exactly one row, asserting it exists (keeps mypy happy in tests)."""
+    row = cur.fetchone()
+    assert row is not None
+    return row
+
+
+# Minimal subset of schema_garmin_data.sql needed for the round-trip tests,
+# created inside a throwaway schema so no real data is touched.
+_SCHEMA_DDL = """
+CREATE TABLE activity (
+    activity_id bigserial NOT NULL,
+    "timestamp" timestamp with time zone,
+    adjusted_distance real,
+    adjusted_duration real,
+    workout_feel smallint,
+    effort smallint,
+    category char(15),
+    activity_name text,
+    description text,
+    total_timer_time real,
+    local_timestamp timestamp without time zone,
+    num_sessions integer,
+    type character varying(50),
+    event character varying(50),
+    event_type character varying(50),
+    event_group smallint,
+    PRIMARY KEY (activity_id)
+);
+CREATE TABLE record (
+    record_id bigserial NOT NULL,
+    activity_id bigint NOT NULL,
+    latitude double precision,
+    longitude double precision,
+    lap smallint,
+    altitude real,
+    "timestamp" timestamp with time zone,
+    heart_rate smallint,
+    cadence smallint,
+    fractional_cadence DECIMAL(1,1),
+    enhanced_speed real,
+    distance real,
+    PRIMARY KEY (record_id)
+);
+CREATE TABLE event (
+    event_id serial NOT NULL,
+    activity_id bigint NOT NULL,
+    "timestamp" timestamp with time zone,
+    event character varying(50),
+    event_type character varying(50),
+    data character varying(50),
+    event_group smallint,
+    PRIMARY KEY (event_id)
+);
+"""
+
+
+@pytest.fixture
+def conn() -> Iterator[psycopg.Connection]:
+    """Yield a connection scoped to a fresh throwaway schema, then drop it."""
+    database_url = os.environ["DB_UI_LOCAL"]
+    schema = f"fitparser_test_{uuid.uuid4().hex[:8]}"
+    connection = psycopg.connect(database_url)
+    try:
+        with connection.cursor() as cur:
+            cur.execute(f'CREATE SCHEMA "{schema}"')
+            cur.execute(f'SET search_path TO "{schema}"')
+            cur.execute(_SCHEMA_DDL)
+        connection.commit()
+        # Keep search_path pointed at the throwaway schema for the test body.
+        with connection.cursor() as cur:
+            cur.execute(f'SET search_path TO "{schema}"')
+        connection.commit()
+        yield connection
+    finally:
+        connection.rollback()
+        with connection.cursor() as cur:
+            cur.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        connection.commit()
+        connection.close()
+
+
+def test_activity_returns_id_and_conflict_no_dup(conn: psycopg.Connection) -> None:
+    """activity insert returns the id; a second insert of the same id is a no-op."""
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 5001,
+                "timestamp": "2025-01-01T00:00:00+00:00",
+                "total_timer_time": 600.0,
+                "num_sessions": 1,
+                "type": "manual",
+                "event": "activity",
+                "event_type": "stop",
+                "activity_name": "O'Brien Park Run",  # apostrophe must survive
+                "description": np.nan,  # NaN → NULL
+            }
+        ]
+    )
+    new_id = insert_activity(df, conn)
+    assert new_id == 5001
+
+    # Re-inserting the same activity_id hits ON CONFLICT DO NOTHING → None.
+    dup_id = insert_activity(df, conn)
+    assert dup_id is None
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT activity_name, description FROM activity WHERE activity_id = 5001")
+        name, description = _fetchone(cur)
+        cur.execute("SELECT COUNT(*) FROM activity WHERE activity_id = 5001")
+        (count,) = _fetchone(cur)
+
+    assert name == "O'Brien Park Run"  # apostrophe stored verbatim
+    assert description is None  # NaN became NULL
+    assert count == 1  # conflict did not duplicate
+
+
+def test_local_timestamp_is_tz_naive_wall_clock(conn: psycopg.Connection) -> None:
+    """local_timestamp stores the tz-stripped wall clock, session-TZ-independent.
+
+    ``local_timestamp`` is a ``timestamp without time zone`` column holding the
+    athlete's local wall-clock time. Binding a tz-aware value directly would let
+    psycopg adapt it as timestamptz and Postgres shift it to the session
+    TimeZone before casting — storing the wrong hour. ``insert_activity`` strips
+    the tz first, so the stored value must equal the naive wall clock (08:00)
+    regardless of the session TimeZone. The tz-aware ``timestamp`` column must be
+    unaffected.
+    """
+    # Force a non-UTC session TimeZone; a naive local_timestamp must not shift.
+    with conn.cursor() as cur:
+        cur.execute("SET TimeZone TO 'America/Chicago'")
+    conn.commit()
+
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 7002,
+                # tz-aware timestamptz column; wall clock 08:00 at +02:00 == 06:00 UTC.
+                "timestamp": pd.Timestamp("2025-01-01 08:00:00", tz="Etc/GMT-2"),
+                # tz-aware LOCAL wall clock; must land as naive 08:00, not shifted.
+                "local_timestamp": pd.Timestamp("2025-01-01 08:00:00", tz="Etc/GMT-2"),
+                "num_sessions": 1,
+                "type": "manual",
+            }
+        ]
+    )
+    new_id = insert_activity(df, conn)
+    assert new_id == 7002
+
+    with conn.cursor() as cur:
+        cur.execute('SELECT local_timestamp, "timestamp" FROM activity WHERE activity_id = 7002')
+        local_ts, ts = _fetchone(cur)
+
+    # Stored local_timestamp is the tz-naive wall clock, independent of session TZ.
+    assert local_ts == pd.Timestamp("2025-01-01 08:00:00").to_pydatetime()
+    # The timestamptz column is unaffected: 08:00 +02:00 == 06:00 UTC.
+    assert ts == pd.Timestamp("2025-01-01 06:00:00", tz="UTC").to_pydatetime()
+
+
+def test_local_timestamp_object_dtype_aware_under_chicago(conn: psycopg.Connection) -> None:
+    """Object-dtype tz-aware local_timestamp stores the naive wall clock.
+
+    This is the confirmed regression: fitdecode yields ``local_timestamp`` as
+    the local wall clock labeled UTC (``2025-07-30 06:11:36+00:00``), and for
+    some single-row / mixed / NaT activities the column arrives as ``object``
+    dtype. The old ``datetime64[ns, tz]``-only guard skipped that case, so the
+    tz-aware value was bound into the ``timestamp without time zone`` column and
+    Postgres shifted it to the session TimeZone — under ``America/Chicago`` a
+    06:11:36 activity was stored as 01:11:36. With the fix the stored value must
+    be the naive 06:11:36 regardless of session TZ, and the tz-aware
+    ``timestamp`` column must be unaffected.
+    """
+    with conn.cursor() as cur:
+        cur.execute("SET TimeZone TO 'America/Chicago'")
+    conn.commit()
+
+    aware = datetime(2025, 7, 30, 6, 11, 36, tzinfo=timezone.utc)
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 8003,
+                "timestamp": pd.Timestamp("2025-07-30 06:11:36", tz="UTC"),
+                "local_timestamp": aware,
+                "num_sessions": 1,
+                "type": "manual",
+            }
+        ]
+    )
+    # Force the object-dtype path that the narrow guard used to miss.
+    df["local_timestamp"] = df["local_timestamp"].astype(object)
+    assert df["local_timestamp"].dtype == object
+
+    new_id = insert_activity(df, conn)
+    assert new_id == 8003
+
+    with conn.cursor() as cur:
+        cur.execute('SELECT local_timestamp, "timestamp" FROM activity WHERE activity_id = 8003')
+        local_ts, ts = _fetchone(cur)
+
+    # Must be the naive 06:11:36 wall clock, NOT the shifted 01:11:36.
+    assert local_ts == pd.Timestamp("2025-07-30 06:11:36").to_pydatetime()
+    assert local_ts != pd.Timestamp("2025-07-30 01:11:36").to_pydatetime()
+    # timestamptz column unaffected.
+    assert ts == pd.Timestamp("2025-07-30 06:11:36", tz="UTC").to_pydatetime()
+
+
+def test_event_executemany_null_and_apostrophe(conn: psycopg.Connection) -> None:
+    """event insert via executemany: NaN → NULL, SQL-like text bound safely."""
+    # A parent activity is required for FK-free schema here, but our test event
+    # table has no FK constraint, so we can insert directly.
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 42,
+                "timestamp": "2025-01-01T00:00:00+00:00",
+                "event": "timer",
+                "event_type": "start",
+                "data": "'); DROP TABLE event;--",  # injection attempt
+                "event_group": np.nan,
+            },
+            {
+                "activity_id": 42,
+                "timestamp": "2025-01-01T00:01:00+00:00",
+                "event": "timer",
+                "event_type": "stop",
+                "data": "O'Brien",
+                "event_group": 3,
+            },
+        ]
+    )
+    assert insert_table(df, "event", conn) is True
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT data, event_group FROM event ORDER BY event_id")
+        rows = cur.fetchall()
+
+    assert rows[0] == ("'); DROP TABLE event;--", None)  # bound as data, not executed
+    assert rows[1] == ("O'Brien", 3)
+    # Table still exists (injection did not run).
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM event")
+        (count,) = _fetchone(cur)
+    assert count == 2
+
+
+def test_record_copy_path(conn: psycopg.Connection) -> None:
+    """record insert uses COPY and stores the same values an INSERT would."""
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 42,
+                "latitude": 51.5,
+                "longitude": -0.12,
+                "lap": 1,
+                "altitude": 10.0,
+                "timestamp": pd.Timestamp("2025-01-01T00:00:01", tz="UTC"),
+                "heart_rate": 120,
+                "cadence": 80,
+                "fractional_cadence": 0.5,
+                "enhanced_speed": 3.2,
+                "distance": 5.0,
+            },
+            {
+                "activity_id": 42,
+                "latitude": np.nan,  # NaN → NULL
+                "longitude": np.nan,
+                "lap": 1,
+                "altitude": 11.0,
+                "timestamp": pd.Timestamp("2025-01-01T00:00:02", tz="UTC"),
+                "heart_rate": 121,
+                "cadence": 81,
+                "fractional_cadence": 0.5,
+                "enhanced_speed": 3.3,
+                "distance": 6.0,
+            },
+        ]
+    )
+    assert insert_table(df, "record", conn) is True
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT latitude, distance FROM record ORDER BY record_id")
+        rows = cur.fetchall()
+
+    assert rows[0][0] == 51.5
+    assert rows[1][0] is None  # NaN became NULL via COPY
+    assert rows[1][1] == 6.0
