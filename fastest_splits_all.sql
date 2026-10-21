@@ -135,6 +135,8 @@ BEGIN
         ) b
     ),
     ranked AS (
+        -- this returns the time and effort to the nearest record.timestamp, not the interpolated
+        -- timestamp
         SELECT
             bp.*,
             ROW_NUMBER() OVER (
