@@ -13,6 +13,7 @@ I connect the database to a [locally hosted website](https://github.com/hevarmet
 
 - Parse `.fit` files from Garmin watches (direct USB export) or Garmin Connect ([bulk export with JSON metadata](https://github.com/petergardfjall/garminexport))
     - Garmin export (the link above) is now deprecated, although it still works for me, so I recommend just exporting from watch to PC or downloading your data from Garmin Connect. I use [Gadgetbridge](https://gadgetbridge.org) to automatically get the .fit files off my watch, but that's another story.
+    - **Edit on 10/21/2026**: Garmin has now provided free API access to your personal Garmin Connect data through its [official API](https://developer.garmin.com/gc-developer-program/overview/)
 - Automatic activity naming via reverse geocoding (OSM Nominatim)
 - Fallback to SQL file output when database is unavailable
 - Incremental loading — only processes files newer than the latest activity in the database
