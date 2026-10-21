@@ -71,6 +71,8 @@ BEGIN
             b.timestamp AS start_time
         FROM _session_records a
         CROSS JOIN LATERAL (
+            -- For end point a, look for the latest/closest earlier point c that is at least
+            -- p_event_distance behind it
             SELECT c.timestamp
             FROM _session_records c
             WHERE c.session_id = a.session_id
