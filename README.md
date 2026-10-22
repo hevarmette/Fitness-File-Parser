@@ -55,6 +55,7 @@ pip install -r requirements.txt
 Create a `.env` file in the project root:
 
 ```env
+CONN_STRING="postgresql://user_name:password@host_name:port/database_name"
 SCHEMA=your_schema
 FIT_DIR=/path/to/your/fit/files/
 ```
@@ -96,22 +97,6 @@ python3 parse_fit_watch.py
 - Files are named `YYYY-MM-DD-HH-MM-SS.fit`
 - Reverse geocoding calls OSM Nominatim with a 1-second delay per request (fair use policy)
 
-## Project Structure
-
-| File                          | Purpose                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| `helpers.py`                  | Shared utilities — FIT parsing, DataFrame construction, DB connection          |
-| `sql_rows.py`                 | Per-table column order + row-builder (`NaN`/`NaT` → `NULL`) and value formatter |
-| `db_insert.py`                | Parameterized inserts (`executemany`; `COPY` for `record`); safe from injection |
-| `watch_files_to_sql.py`       | Offline SQL INSERT file generator (fallback when the DB is unavailable)        |
-| `parse_fit_watch.py`          | Pipeline for watch-exported `.fit` files                                       |
-| `parse_fit_garmin_connect.py` | Pipeline for Garmin Connect exported files                                     |
-| `get_pool_info.py`            | Extract and update pool/swimming session data                                  |
-| `parse_tcx.py`                | TCX file parser (legacy, unmaintained)                                         |
-| `parse_gpx.py`                | GPX file parser (legacy, unmaintained)                                         |
-| `schema_garmin_data.sql`      | PostgreSQL table definitions                                                   |
-| `tests/`                      | pytest suite: golden-output regression, SQL/row-builder, DB round-trip         |
-
 ## Development
 
 Install the dev tooling (test runner, linter, formatter, type checker) into your
@@ -132,7 +117,7 @@ compares every produced DataFrame against a committed **golden baseline**
 (`tests/baseline/`) with `pandas.testing.assert_frame_equal`, so any change that
 alters decoded output fails fast. Tests do **not** require a database —
 DB round-trip tests are marked `@pytest.mark.db` and skip automatically when
-`DB_UI_LOCAL` is unset.
+`CONN_STRING` is unset.
 
 If you intentionally change decoded output, regenerate the baseline:
 
