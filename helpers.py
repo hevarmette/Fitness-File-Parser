@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -280,6 +281,35 @@ def extract_date_from_filename_watch(filename: str) -> datetime:
     return datetime.strptime(date_str, "%Y-%m-%d-%H-%M-%S").replace(tzinfo=timezone.utc)
 
 
+def is_watch_filename(filename: str) -> bool:
+    """
+    Checks if a filename matches the watch export naming convention (YYYY-MM-DD-HH-MM-SS.fit).
+
+    Args:
+        filename (str): The filename or path.
+
+    Returns:
+        bool: True if filename matches the watch convention, False otherwise.
+    """
+    return (
+        re.match(r"^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.fit$", os.path.basename(filename))
+        is not None
+    )
+
+
+def is_connect_filename(filename: str) -> bool:
+    """
+    Checks if a filename matches the Garmin Connect naming convention ({timestamp}_{activity_id}.fit).
+
+    Args:
+        filename (str): The filename or path.
+
+    Returns:
+        bool: True if filename matches the Garmin Connect convention, False otherwise.
+    """
+    return re.match(r"^.+_\d+\.fit$", os.path.basename(filename)) is not None
+
+
 # -------------------------
 # FIT DATA EXTRACTION HELPERS
 # -------------------------
@@ -487,7 +517,7 @@ def get_dataframes(
     constructs DataFrames, and performs necessary data cleaning and type conversion
     (e.g., coordinate conversion, timestamp filling, intensity matching).
 
-    When ``existing_file_ids`` is provided, the ``file_id`` header frame is 
+    When ``existing_file_ids`` is provided, the ``file_id`` header frame is
     checked against ``existing_file_ids`` as
     soon as it is read. If it matches an existing database entry, reading stops
     immediately and empty DataFrames are returned without decoding the rest of

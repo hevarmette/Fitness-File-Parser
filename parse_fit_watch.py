@@ -20,13 +20,13 @@ from dotenv import load_dotenv
 from db_insert import insert_activity, insert_table
 from helpers import (
     FileIdKey,
-    extract_date_from_filename_connect,
     extract_date_from_filename_watch,
     file_id_df_to_key,
     get_after_date,
     get_conn,
     get_dataframes,
     get_existing_file_ids,
+    is_watch_filename,
     peek_file_id_key,
 )
 from watch_files_to_sql import write_sql_statement_to_file
@@ -232,8 +232,8 @@ if __name__ == "__main__":
     # (which reads the module-level `conn`) uses this same connection.
     conn = get_conn()
 
-    # Get all .fit files in the directory
-    files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
+    # Get all watch .fit files in the directory
+    files = [f for f in listdir(dir) if isfile(join(dir, f)) and is_watch_filename(f)]
 
     existing_file_ids: set[FileIdKey] | None = None
     if CHECK_DB_FOR_EXISTING:
@@ -241,21 +241,10 @@ if __name__ == "__main__":
         filtered_files = files
     else:
         after_date = get_after_date(conn)
-        # Define date range for processing
         today = datetime.now(timezone.utc)
-
-        # Filter files based on the date range extracted from filename
-        filtered_files = []
-        for f in files:
-            try:
-                file_date = extract_date_from_filename_watch(f)
-            except ValueError:
-                file_date = extract_date_from_filename_connect(f)
-            if after_date < file_date <= today:
-                filtered_files.append(f)
-
-    #     f for f in files if after_date < extract_date_from_filename_watch(f) <= today
-    # ]
+        filtered_files = [
+            f for f in files if after_date < extract_date_from_filename_watch(f) <= today
+        ]
 
     if args.dry_run:
         print(f"\n[DRY RUN] Evaluating {len(filtered_files)} file(s)...")

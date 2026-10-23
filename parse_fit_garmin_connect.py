@@ -17,13 +17,13 @@ from dotenv import load_dotenv
 from db_insert import insert_activity, insert_table
 from helpers import (
     extract_date_from_filename_connect,
-    extract_date_from_filename_watch,
     get_after_date,
     get_conn,
     get_dataframes,
     get_existing_activity_ids,
     get_json_info,
     get_user_activity_details,
+    is_connect_filename,
 )
 from watch_files_to_sql import write_sql_statement_to_file
 
@@ -130,7 +130,8 @@ if __name__ == "__main__":
     # Optional to only insert files between a certain date
     today = datetime.now(ZoneInfo("America/Chicago"))  # .date()
 
-    files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
+    # Get all Garmin Connect .fit files in the directory
+    files = [f for f in listdir(dir) if isfile(join(dir, f)) and is_connect_filename(f)]
 
     filtered_files = []
     if not ONLY_WRITE_FILE and CHECK_DB_FOR_EXISTING:
@@ -141,14 +142,9 @@ if __name__ == "__main__":
             else:
                 print(f"[SKIP] {f}: activity_id {file_activity_id} already exists in database.")
     else:
-        # f
-        for f in files:
-            try:
-                file_date = extract_date_from_filename_connect(f)
-            except ValueError:
-                file_date = extract_date_from_filename_watch(f)
-            if after_date < file_date <= today:
-                filtered_files.append(f)
+        filtered_files = [
+            f for f in files if after_date < extract_date_from_filename_connect(f) <= today
+        ]
 
     if args.dry_run:
         print("\n[DRY RUN SUMMARY]")
