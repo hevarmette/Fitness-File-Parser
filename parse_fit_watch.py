@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import argparse
 import os
+import sys
 import time
 from datetime import datetime, timezone
 from os import listdir
@@ -17,11 +19,15 @@ from dotenv import load_dotenv
 
 from db_insert import insert_activity, insert_table
 from helpers import (
+    FileIdKey,
     extract_date_from_filename_connect,
     extract_date_from_filename_watch,
+    file_id_df_to_key,
     get_after_date,
     get_conn,
     get_dataframes,
+    get_existing_file_ids,
+    peek_file_id_key,
 )
 from watch_files_to_sql import write_sql_statement_to_file
 
@@ -94,7 +100,7 @@ def build_default_activity_name(session_df: pd.DataFrame, activity_df: pd.DataFr
     """
 
     # ---------- Activity Type ----------
-    # Default to 1 (safe fallback)
+    # Default to 1 for a fallback
     num_sessions = 1
 
     if "num_sessions" in activity_df.columns:
@@ -200,6 +206,24 @@ if __name__ == "__main__":
     Unlike the parse fit garmin connect, this will only work with a database connection because this logic expects activity IDs to be created in the database.
     If an activity fails to insert for whatever reason, the file will be written with a made up activity id, and this is intended for testing purposes to check the SQL is valid.
     """
+    parser = argparse.ArgumentParser(description="Parse watch FIT files into PostgreSQL.")
+    parser.add_argument(
+        "-c",
+        "--check-existing",
+        action="store_true",
+        help="Check if file_id already exists in the DB instead of filtering by after_date.",
+    )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Simulate run without parsing full records or inserting into the database.",
+    )
+    args = parser.parse_args()
+
+    # Secondary logic: check if file_id already exists in the DB instead of after_date.
+    CHECK_DB_FOR_EXISTING = args.check_existing
+
     raw_dir = os.getenv("FIT_DIR")
     dir = os.path.expandvars(raw_dir)
     file_extension = ".fit"
@@ -207,35 +231,70 @@ if __name__ == "__main__":
     # Connect exactly once per run. `conn` is module-global so insert_or_fallback
     # (which reads the module-level `conn`) uses this same connection.
     conn = get_conn()
-    after_date = get_after_date(conn)
-    # Define date range for processing
-    today = datetime.now(timezone.utc)
 
     # Get all .fit files in the directory
     files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
 
-    # Filter files based on the date range extracted from filename
-    filtered_files = []
-    for f in files:
-        try:
-            file_date = extract_date_from_filename_watch(f)
-        except ValueError:
-            file_date = extract_date_from_filename_connect(f)
-        if after_date < file_date <= today:
-            filtered_files.append(f)
+    existing_file_ids: set[FileIdKey] | None = None
+    if CHECK_DB_FOR_EXISTING:
+        existing_file_ids = get_existing_file_ids(conn)
+        filtered_files = files
+    else:
+        after_date = get_after_date(conn)
+        # Define date range for processing
+        today = datetime.now(timezone.utc)
+
+        # Filter files based on the date range extracted from filename
+        filtered_files = []
+        for f in files:
+            try:
+                file_date = extract_date_from_filename_watch(f)
+            except ValueError:
+                file_date = extract_date_from_filename_connect(f)
+            if after_date < file_date <= today:
+                filtered_files.append(f)
 
     #     f for f in files if after_date < extract_date_from_filename_watch(f) <= today
     # ]
+
+    if args.dry_run:
+        print(f"\n[DRY RUN] Evaluating {len(filtered_files)} file(s)...")
+        would_parse = []
+        for file in filtered_files:
+            fname = dir + file
+            if CHECK_DB_FOR_EXISTING:
+                key = peek_file_id_key(fname)
+                if existing_file_ids is not None and key in existing_file_ids:
+                    print(f"[SKIP] {file}: file_id already exists in database.")
+                else:
+                    print(f"[WOULD PARSE] {file}")
+                    would_parse.append(file)
+                    if existing_file_ids is not None and key is not None:
+                        existing_file_ids.add(key)
+            else:
+                print(f"[WOULD PARSE] {file}")
+                would_parse.append(file)
+
+        print("\n[DRY RUN SUMMARY]")
+        print(f"Total files evaluated: {len(filtered_files)}")
+        print(f"Files that would be parsed: {len(would_parse)}")
+        print(f"Files that would be skipped: {len(filtered_files) - len(would_parse)}")
+        sys.exit(0)
 
     # Process each file individually
     fallback_id = 1000000000
     for file in filtered_files:
         fname = dir + file
 
-        # Parse FIT file into DataFrames
+        # Parse FIT file into DataFrames (or stop after the file_id header frame
+        # if CHECK_DB_FOR_EXISTING is True and the file_id already exists in the DB).
         lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df = (
-            get_dataframes(fname)
+            get_dataframes(fname, existing_file_ids=existing_file_ids)
         )
+
+        if activity_df.empty:
+            print(f"[SKIP] {file}: file_id already exists in database.")
+            continue
 
         # Pre-process Activity DF:
         # Aggregate totals from Session DF and generate a descriptive name
@@ -306,3 +365,7 @@ if __name__ == "__main__":
             insert_or_fallback(length_df, "length")
             insert_or_fallback(event_df, "event")
             # NOTE: session parser is using float definitions right now
+            if existing_file_ids is not None:
+                file_key = file_id_df_to_key(file_id_df)
+                if file_key is not None:
+                    existing_file_ids.add(file_key)

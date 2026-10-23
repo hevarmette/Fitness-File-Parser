@@ -21,6 +21,7 @@ import os
 import uuid
 from collections.abc import Iterator
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -28,6 +29,12 @@ import psycopg
 import pytest
 
 from db_insert import insert_activity, insert_table
+from helpers import (
+    file_id_df_to_key,
+    get_dataframes,
+    get_existing_activity_ids,
+    get_existing_file_ids,
+)
 
 pytestmark = pytest.mark.db
 
@@ -85,6 +92,15 @@ CREATE TABLE event (
     data character varying(50),
     event_group smallint,
     PRIMARY KEY (event_id)
+);
+CREATE TABLE file_id (
+    activity_id bigint NOT NULL,
+    serial_number bigint,
+    time_created timestamp with time zone,
+    manufacturer character varying(50),
+    product character varying(50),
+    number double precision,
+    type character varying(50)
 );
 """
 
@@ -318,3 +334,77 @@ def test_record_copy_path(conn: psycopg.Connection) -> None:
     assert rows[0][0] == 51.5
     assert rows[1][0] is None  # NaN became NULL via COPY
     assert rows[1][1] == 6.0
+
+
+def test_get_existing_activity_ids_roundtrip(conn: psycopg.Connection) -> None:
+    """get_existing_activity_ids returns all inserted activity_id values."""
+    assert get_existing_activity_ids(conn) == set()
+
+    df = pd.DataFrame(
+        [
+            {
+                "activity_id": 9001,
+                "timestamp": "2025-01-01T00:00:00+00:00",
+                "num_sessions": 1,
+                "type": "manual",
+            }
+        ]
+    )
+    assert insert_activity(df, conn) == 9001
+    assert get_existing_activity_ids(conn) == {9001}
+
+
+def test_existing_file_ids_single_pass_skip_and_decode(conn: psycopg.Connection) -> None:
+    """get_dataframes skips immediately when file_id exists in DB and decodes otherwise."""
+    with conn.cursor() as cur:
+        cur.execute("SET TimeZone TO 'America/Chicago'")
+    conn.commit()
+
+    sample_fit = str(
+        Path(__file__).resolve().parent.parent
+        / "example activities"
+        / "Activity"
+        / "2025-07-30-06-11-36.fit"
+    )
+
+    # 1. Before inserting into file_id, existing_file_ids is empty; get_dataframes
+    # decodes the entire file in a single pass.
+    existing_file_ids = get_existing_file_ids(conn)
+    assert existing_file_ids == set()
+
+    lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df = get_dataframes(
+        sample_fit, existing_file_ids=existing_file_ids
+    )
+    assert not activity_df.empty
+    assert not record_df.empty
+    assert not file_id_df.empty
+
+    # 2. Insert file_id_df into the database (product is int 4570 in fitdecode,
+    # stored as varchar '4570' in PostgreSQL; time_created is timestamptz).
+    file_id_to_insert = file_id_df.copy()
+    file_id_to_insert["activity_id"] = 101
+    assert insert_table(file_id_to_insert, "file_id", conn) is True
+
+    # 3. Query existing_file_ids from DB and verify normalization matches file_id_df.
+    existing_file_ids = get_existing_file_ids(conn)
+    assert len(existing_file_ids) == 1
+    assert file_id_df_to_key(file_id_df) in existing_file_ids
+
+    # 4. Calling get_dataframes with existing_file_ids now stops after the file_id
+    # header frame without decoding record/lap/activity frames.
+    (
+        skipped_lap,
+        skipped_record,
+        skipped_file_id,
+        skipped_activity,
+        skipped_session,
+        skipped_length,
+        skipped_event,
+    ) = get_dataframes(sample_fit, existing_file_ids=existing_file_ids)
+    assert skipped_activity.empty
+    assert skipped_record.empty
+    assert skipped_lap.empty
+    assert skipped_session.empty
+    assert skipped_file_id.empty
+    assert skipped_length.empty
+    assert skipped_event.empty

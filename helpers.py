@@ -379,9 +379,103 @@ def create_safe_df(
 # MAIN DATAFRAME CONSTRUCTOR
 # -------------------------
 
+FileIdKey = tuple[int | None, datetime | None, str | None, str | None, float | None, str | None]
+
+
+def normalize_file_id_key(
+    serial_number: Any,
+    time_created: Any,
+    manufacturer: Any,
+    product: Any,
+    number: Any,
+    ftype: Any,
+) -> FileIdKey:
+    """
+    Normalizes a ``file_id`` record into a hashable tuple so values decoded by
+    ``fitdecode`` and values read back from PostgreSQL compare identically.
+
+    Specifically:
+    * ``time_created`` is normalized to a UTC-aware ``datetime`` (PostgreSQL
+      returns ``timestamptz`` in the session timezone, while ``fitdecode``
+      yields UTC).
+    * ``product`` is normalized to ``str`` because ``fitdecode`` may yield an
+      integer product code (e.g. ``4570``) whereas the ``file_id.product``
+      column is ``character varying(50)`` (``'4570'``).
+
+    Args:
+        serial_number: Device serial number.
+        time_created: File creation timestamp.
+        manufacturer: Device manufacturer name.
+        product: Device product identifier or name.
+        number: Optional file number.
+        ftype: FIT file type (e.g. ``'activity'``).
+
+    Returns:
+        FileIdKey: Normalized 6-tuple for set membership checks.
+    """
+    tc = pd.to_datetime(time_created, errors="coerce", utc=True)
+    tc_val: datetime | None = None if pd.isna(tc) else tc.to_pydatetime()
+    sn_val = None if pd.isna(serial_number) else int(serial_number)
+    mfg_val = None if pd.isna(manufacturer) else str(manufacturer)
+    prod_val = None if pd.isna(product) else str(product)
+    num_val = None if pd.isna(number) else float(number)
+    type_val = None if pd.isna(ftype) else str(ftype)
+    return (sn_val, tc_val, mfg_val, prod_val, num_val, type_val)
+
+
+def file_id_df_to_key(file_id_df: pd.DataFrame) -> FileIdKey | None:
+    """
+    Extracts a normalized :data:`FileIdKey` from the first row of ``file_id_df``.
+
+    Args:
+        file_id_df (pd.DataFrame): Decoded ``file_id`` DataFrame.
+
+    Returns:
+        FileIdKey | None: Normalized tuple, or ``None`` if ``file_id_df`` is empty.
+    """
+    if file_id_df.empty:
+        return None
+    row = file_id_df.iloc[0]
+    return normalize_file_id_key(
+        row.get("serial_number"),
+        row.get("time_created"),
+        row.get("manufacturer"),
+        row.get("product"),
+        row.get("number"),
+        row.get("type"),
+    )
+
+
+def peek_file_id_key(fname: str) -> FileIdKey | None:
+    """
+    Reads only the ``file_id`` header frame from a FIT file without decoding
+    the rest of the messages. Only used in the dry run.
+
+    Args:
+        fname (str): Path to the FIT file.
+
+    Returns:
+        FileIdKey | None: Normalized key if ``file_id`` is found, otherwise None.
+    """
+    with fitdecode.FitReader(fname) as fit_file:
+        for frame in fit_file:
+            if isinstance(frame, fitdecode.records.FitDataMessage) and frame.name == "file_id":
+                fid_row = get_fit_other_data(file_id, frame)
+                return normalize_file_id_key(
+                    fid_row.get("serial_number"),
+                    fid_row.get("time_created"),
+                    fid_row.get("manufacturer"),
+                    fid_row.get("product"),
+                    fid_row.get("number"),
+                    fid_row.get("type"),
+                )
+    return None
+
 
 def get_dataframes(
-    fname: str, activity_id: str | None = None
+    fname: str,
+    activity_id: str | None = None,
+    existing_file_ids: set[FileIdKey] | None = None,
 ) -> tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
 ]:
@@ -393,12 +487,20 @@ def get_dataframes(
     constructs DataFrames, and performs necessary data cleaning and type conversion
     (e.g., coordinate conversion, timestamp filling, intensity matching).
 
+    When ``existing_file_ids`` is provided, the ``file_id`` header frame is 
+    checked against ``existing_file_ids`` as
+    soon as it is read. If it matches an existing database entry, reading stops
+    immediately and empty DataFrames are returned without decoding the rest of
+    the file; otherwise, parsing continues through the rest of the open file.
+
     Args:
         fname (str): Path to the FIT file.
         activity_id (str, optional): The ID to assign to the rows in the DataFrames.
+        existing_file_ids (set[FileIdKey], optional): Normalized ``file_id``
+            tuples already present in the database for single-pass early exit.
 
     Returns:
-        tuple: A tuple containing (lap_df, record_df, file_id_df, activity_df, session_df, length_df).
+        tuple: A tuple containing (lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df).
     """
 
     # Initialize data containers
@@ -451,7 +553,20 @@ def get_dataframes(
                 lap_no += 1
 
             elif frame.name == "file_id":
-                file_id_data.append(get_fit_other_data(file_id, frame))
+                fid_row = get_fit_other_data(file_id, frame)
+                if existing_file_ids is not None and fid_row.get("time_created") is not None:
+                    key = normalize_file_id_key(
+                        fid_row.get("serial_number"),
+                        fid_row.get("time_created"),
+                        fid_row.get("manufacturer"),
+                        fid_row.get("product"),
+                        fid_row.get("number"),
+                        fid_row.get("type"),
+                    )
+                    if key in existing_file_ids:
+                        empty = pd.DataFrame()
+                        return empty, empty, empty, empty, empty, empty, empty
+                file_id_data.append(fid_row)
 
             elif frame.name == "activity":
                 activity_data.append(get_fit_other_data(activity, frame))
@@ -521,6 +636,12 @@ def get_dataframes(
             if not activity_df.empty and "timestamp" in activity_df.columns:
                 fallback_time = pd.to_datetime(activity_df.iloc[0]["timestamp"], utc=True)
                 file_id_df.loc[0, "time_created"] = fallback_time
+
+        if existing_file_ids is not None:
+            fallback_key = file_id_df_to_key(file_id_df)
+            if fallback_key is not None and fallback_key in existing_file_ids:
+                empty = pd.DataFrame()
+                return empty, empty, empty, empty, empty, empty, empty
 
     # NOTE: converting lat and long from ints into floats.
     lat_long_cols_session = session[:6]
@@ -604,3 +725,44 @@ def get_after_date(_conn: psycopg.Connection) -> datetime:
             after_date = datetime(1900, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     # Return the after date
     return after_date
+
+
+def get_existing_activity_ids(_conn: psycopg.Connection) -> set[int]:
+    """
+    Retrieve all existing ``activity_id`` values from the ``activity`` table.
+
+    Used by the Garmin Connect parser when ``CHECK_DB_FOR_EXISTING`` is enabled
+    so files whose ``activity_id`` is already in the database can be skipped
+    before decoding.
+
+    Args:
+        _conn (psycopg.Connection): Interface to postgres.
+
+    Returns:
+        set[int]: Set of existing ``activity_id`` integers.
+    """
+    with _conn.cursor() as cur:
+        cur.execute("SELECT activity_id FROM activity;")
+        return {int(row[0]) for row in cur.fetchall() if row[0] is not None}
+
+
+def get_existing_file_ids(_conn: psycopg.Connection) -> set[FileIdKey]:
+    """
+    Retrieve all existing ``file_id`` records from the database as normalized
+    :data:`FileIdKey` tuples.
+
+    Used by the watch parser when ``CHECK_DB_FOR_EXISTING`` is enabled so a FIT
+    file whose ``file_id`` header already exists in the database can be skipped
+    immediately after reading its ``file_id`` frame.
+
+    Args:
+        _conn (psycopg.Connection): Interface to postgres.
+
+    Returns:
+        set[FileIdKey]: Set of normalized ``file_id`` tuples.
+    """
+    with _conn.cursor() as cur:
+        cur.execute(
+            "SELECT serial_number, time_created, manufacturer, product, number, type FROM file_id;"
+        )
+        return {normalize_file_id_key(*row) for row in cur.fetchall()}

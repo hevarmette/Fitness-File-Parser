@@ -2,8 +2,6 @@
 
 This is from a project I did in school, I only maintain .fit file support now.
 
-TODO: It would be better to load activities if their id does not exist in the database (for garmin connect) or if there is no activity with the same start time (for the watch) (and maybe duration or something to identify if it's the same activity or not)
-
 Parse `.fit` activity files into a PostgreSQL database. Designed for personal fitness data warehousing — extract lap, record, session, and event data from your watch exports and store them in a relational schema for analysis. I have only tested Garmin .fit files. See the FIT SDK from Garmin to see how the file is structured and how to add additional frames/fields for other manufacturers, if the parser does not work.
 If you are just holding one persons data, you may consider using a sqlite database instead of PostgreSQL for ease of use.
 
@@ -16,9 +14,8 @@ I connect the database to a [locally hosted website](https://github.com/hevarmet
     - **Edit on 10/21/2026**: Garmin has now provided free API access to your personal Garmin Connect data through its [official API](https://developer.garmin.com/gc-developer-program/overview/)
 - Automatic activity naming via reverse geocoding (OSM Nominatim)
 - Fallback to SQL file output when database is unavailable
-- Incremental loading — only processes files newer than the latest activity in the database
+- Incremental loading — defaults to processing files newer than the latest activity in the database, with an optional `CHECK_DB_FOR_EXISTING` mode to check whether each activity already exists in the database (`activity.activity_id` for Garmin Connect files, or `file_id` header metadata for watch files)
 - Swimming lap counting with active/recovery distinction
-- Lap power backfilling for existing activities
 
 ## Database Schema
 
@@ -83,6 +80,14 @@ python3 parse_fit_garmin_connect.py
 - Files are named `{timestamp}_{activity_id}.fit` (e.g. `2024-01-15T08.30.00_{id}.fit`)
 - A matching `{timestamp}_{activity_id}_summary.json` exists alongside each `.fit` file
 - Set `ONLY_WRITE_FILE = True` in the script to generate SQL files without a database connection
+- Pass `--check-existing` (or `-c`) to load any file whose `activity_id` does not yet exist in `activity` (instead of filtering by `after_date`):
+  ```bash
+  python3 parse_fit_garmin_connect.py --check-existing
+  ```
+- Pass `--dry-run` (or `-n`) with or without `-c` to preview which files would be parsed or skipped without writing to the database:
+  ```bash
+  python3 parse_fit_garmin_connect.py -c -n
+  ```
 
 ### Original files (`.fit` only)
 
@@ -96,6 +101,14 @@ python3 parse_fit_watch.py
 
 - Files are named `YYYY-MM-DD-HH-MM-SS.fit`
 - Reverse geocoding calls OSM Nominatim with a 1-second delay per request (fair use policy)
+- Pass `--check-existing` (or `-c`) to check each file's `file_id` header (`serial_number`, `time_created`, `manufacturer`, `product`, `number`, `type`) against the `file_id` table in the database, skipping files already in the database and continuing to decode new files in a single pass:
+  ```bash
+  python3 parse_fit_watch.py --check-existing
+  ```
+- Pass `--dry-run` (or `-n`) with or without `-c` to preview which files would be parsed or skipped without writing to the database (and without making reverse-geocoding network requests):
+  ```bash
+  python3 parse_fit_watch.py -c -n
+  ```
 
 ## Development
 

@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 # This file handles Garmin Connect files (summary JSON + FIT)
+import argparse
 import os
+import sys
 from datetime import datetime, timezone
 from os import listdir
 from os.path import isfile, join
@@ -19,6 +21,7 @@ from helpers import (
     get_after_date,
     get_conn,
     get_dataframes,
+    get_existing_activity_ids,
     get_json_info,
     get_user_activity_details,
 )
@@ -86,15 +89,37 @@ def insert_or_fallback(
 # ------------------------------------
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Parse Garmin Connect FIT + JSON files into DB.")
+    parser.add_argument(
+        "-c",
+        "--check-existing",
+        action="store_true",
+        help="Check if activity_id already exists in the DB instead of filtering by after_date.",
+    )
+    parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Simulate run without parsing files or inserting into the database.",
+    )
+    args = parser.parse_args()
+
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
     ONLY_WRITE_FILE = False
+    # Secondary logic: check if activity_id already exists in the DB instead of after_date.
+    CHECK_DB_FOR_EXISTING = args.check_existing
+    existing_ids: set[int] = set()
     if not ONLY_WRITE_FILE:
         conn = get_conn()
-        after_date = get_after_date(conn)
+        if CHECK_DB_FOR_EXISTING:
+            existing_ids = get_existing_activity_ids(conn)
+        else:
+            after_date = get_after_date(conn)
+            print(after_date)
     else:
         conn = None
         after_date = datetime(2021, 3, 1, 0, 0, 0, tzinfo=timezone.utc)
-    print(after_date)
+        print(after_date)
     # Directory to read .fit and .json_summary files from
     load_dotenv()
     # FIT_DIR needs to be in .env file
@@ -108,14 +133,32 @@ if __name__ == "__main__":
     files = [f for f in listdir(dir) if isfile(join(dir, f)) and f.endswith(file_extension)]
 
     filtered_files = []
-    # f
-    for f in files:
-        try:
-            file_date = extract_date_from_filename_connect(f)
-        except ValueError:
-            file_date = extract_date_from_filename_watch(f)
-        if after_date < file_date <= today:
-            filtered_files.append(f)
+    if not ONLY_WRITE_FILE and CHECK_DB_FOR_EXISTING:
+        for f in files:
+            file_activity_id = get_user_activity_details(f)
+            if file_activity_id is not None and int(file_activity_id) not in existing_ids:
+                filtered_files.append(f)
+            else:
+                print(f"[SKIP] {f}: activity_id {file_activity_id} already exists in database.")
+    else:
+        # f
+        for f in files:
+            try:
+                file_date = extract_date_from_filename_connect(f)
+            except ValueError:
+                file_date = extract_date_from_filename_watch(f)
+            if after_date < file_date <= today:
+                filtered_files.append(f)
+
+    if args.dry_run:
+        print("\n[DRY RUN SUMMARY]")
+        print(f"Total files evaluated: {len(files)}")
+        print(f"Files that would be parsed: {len(filtered_files)}")
+        print(f"Files that would be skipped: {len(files) - len(filtered_files)}")
+        for f in filtered_files:
+            file_act_id = get_user_activity_details(f)
+            print(f"  [WOULD PARSE] {f} (activity_id: {file_act_id})")
+        sys.exit(0)
 
     errors = []
 
@@ -161,4 +204,6 @@ if __name__ == "__main__":
         insert_or_fallback(session_df, "session", ONLY_WRITE_FILE, conn)
         insert_or_fallback(length_df, "length", ONLY_WRITE_FILE, conn)
         insert_or_fallback(event_df, "event", ONLY_WRITE_FILE, conn)
+        if not ONLY_WRITE_FILE and CHECK_DB_FOR_EXISTING and activity_id is not None:
+            existing_ids.add(int(activity_id))
     print("Done")
