@@ -2,6 +2,8 @@
 
 This is from a project I did in school, I only maintain .fit file support now.
 
+TODO: record rows my have nulls in a field which change datatypes from the column and may not be entered into the database. For instance heart rate is a smallint but if a null appears, the column will turn to a float and inserting to database will fail
+
 Parse `.fit` activity files into a PostgreSQL database. Designed for personal fitness data warehousing — extract lap, record, session, and event data from your watch exports and store them in a relational schema for analysis. I have only tested Garmin .fit files. See the FIT SDK from Garmin to see how the file is structured and how to add additional frames/fields for other manufacturers, if the parser does not work.
 If you are just holding one persons data, you may consider using a sqlite database instead of PostgreSQL for ease of use.
 
