@@ -15,7 +15,8 @@ request, or a database insert. This module answers that with two tools:
   ``requests`` waiting on a socket, ``fitdecode`` reading frames, or ``psycopg``
   waiting on the database).
 
-Output goes to the console and is appended to ``timing.log`` in the repo root.
+Output goes to the console and is written to ``timing.log`` in the repo root,
+overwriting the previous run's log.
 Call :func:`configure_logging` once from a pipeline's ``__main__``; when it has
 not been called (tests, library use) the INFO lines are silent.
 """
@@ -43,7 +44,7 @@ _dump_stream: IO[str] | None = None
 
 
 def configure_logging(level: int = logging.INFO) -> None:
-    """Send ``fit_parser`` logs to the console and append them to ``timing.log``.
+    """Send ``fit_parser`` logs to the console and ``timing.log`` (overwritten each run).
 
     Safe to call more than once; handlers are only added the first time.
 
@@ -56,7 +57,7 @@ def configure_logging(level: int = logging.INFO) -> None:
         return
 
     formatter = logging.Formatter("%(asctime)s %(levelname)-7s %(message)s")
-    file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
+    file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
     console_handler = logging.StreamHandler()
     for handler in (file_handler, console_handler):
         handler.setFormatter(formatter)
