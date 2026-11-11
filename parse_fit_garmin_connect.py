@@ -25,6 +25,7 @@ from helpers import (
     get_user_activity_details,
     is_connect_filename,
 )
+from timing_log import StageTimer, configure_logging
 from watch_files_to_sql import write_sql_statement_to_file
 
 # pd.set_option("display.max_columns", None)
@@ -103,6 +104,7 @@ if __name__ == "__main__":
         help="Simulate run without parsing files or inserting into the database.",
     )
     args = parser.parse_args()
+    configure_logging()
 
     # Flag to only write sql, does not require connection to a database. Otherwise connect to db.
     ONLY_WRITE_FILE = False
@@ -164,6 +166,8 @@ if __name__ == "__main__":
         json_file = fname.replace(file_extension, "_summary.json")
 
         activity_id = get_user_activity_details(fname)
+        # Per-stage timing + hang watchdog for this file (see timing_log.py).
+        timer = StageTimer(file, watch_hangs=True)
 
         try:
             # this will only fail if activity_df fails
@@ -176,6 +180,7 @@ if __name__ == "__main__":
                 length_df,
                 event_df,
             ) = get_dataframes(fname, activity_id)
+            timer.lap("decode total (get_dataframes)")
 
         except Exception as e:
             # if getting an activity fails, then we skip the rest of the information,
@@ -185,21 +190,28 @@ if __name__ == "__main__":
             log_file_path = os.path.join(os.path.dirname(__file__), "errors.txt")
             with open(log_file_path, "a") as log_file:
                 log_file.write(f"\n{activity_id} - SKIPPED FILE: {e}")
+            timer.finish("skipped: decode failed")
             continue  # move to next file
 
         # Gets metadata from json file. Such as activity name, description, and adjusted metrics
         json_info_df = pd.DataFrame(get_json_info(json_file), index=[0])
         activity_df_fixed = pd.concat([activity_df, json_info_df], axis=1)
+        timer.lap("read summary json")
 
         # save to db or write to file
         print(f"Loading activity {activity_id} . . .")
-        insert_or_fallback(activity_df_fixed, "activity", ONLY_WRITE_FILE, conn)
-        insert_or_fallback(file_id_df, "file_id", ONLY_WRITE_FILE, conn)
-        insert_or_fallback(lap_df, "lap", ONLY_WRITE_FILE, conn)
-        insert_or_fallback(record_df, "record", ONLY_WRITE_FILE, conn)
-        insert_or_fallback(session_df, "session", ONLY_WRITE_FILE, conn)
-        insert_or_fallback(length_df, "length", ONLY_WRITE_FILE, conn)
-        insert_or_fallback(event_df, "event", ONLY_WRITE_FILE, conn)
+        for table_name, table_df in (
+            ("activity", activity_df_fixed),
+            ("file_id", file_id_df),
+            ("lap", lap_df),
+            ("record", record_df),
+            ("session", session_df),
+            ("length", length_df),
+            ("event", event_df),
+        ):
+            insert_or_fallback(table_df, table_name, ONLY_WRITE_FILE, conn)
+            timer.lap(f"insert {table_name}", rows=len(table_df))
         if not ONLY_WRITE_FILE and CHECK_DB_FOR_EXISTING and activity_id is not None:
             existing_ids.add(int(activity_id))
+        timer.finish()
     print("Done")

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,6 +16,8 @@ import pandas as pd
 import psycopg
 from dateutil import parser
 from dotenv import load_dotenv
+
+from timing_log import StageTimer
 
 # -------------------------
 # COLUMN DEFINITIONS
@@ -563,6 +566,12 @@ def get_dataframes(
     # if any. Not a schema column, so it is attached to activity_df.attrs below.
     workout_name: str | None = None
 
+    # Diagnostics only (see timing_log.py): how many frames of each message name the
+    # file holds, and per-stage durations, to tell whether a slow file is slow
+    # because it is huge / full of unused frames, or because a later stage is slow.
+    timer = StageTimer(os.path.basename(fname))
+    message_counts: Counter[str] = Counter()
+
     # Iterate through the FIT file. `fitdecode` yields every frame type in the
     # file, but the schema only uses the names in WANTED_MESSAGE_NAMES. We skip
     # unwanted data messages early so intensity/wkt_step_index probing and the
@@ -573,6 +582,8 @@ def get_dataframes(
         for frame in fit_file:
             if not isinstance(frame, fitdecode.records.FitDataMessage):
                 continue
+
+            message_counts[frame.name] += 1
 
             if frame.name not in WANTED_MESSAGE_NAMES:
                 continue
@@ -632,6 +643,15 @@ def get_dataframes(
                 # Some files contain a `workout` message with no name; keep None then.
                 workout_name = frame.get_value("wkt_name", fallback=None) or None
 
+    frames_used = sum(n for name, n in message_counts.items() if name in WANTED_MESSAGE_NAMES)
+    timer.lap(
+        "read FIT frames",
+        file_kb=os.path.getsize(fname) // 1024,
+        frames_iterated=sum(message_counts.values()),
+        frames_used=frames_used,
+        most_common=dict(message_counts.most_common(3)),
+    )
+
     # Build DataFrames
     lap_df = create_safe_df(lap_data, lap, "lap_df", activity_id)
 
@@ -664,6 +684,12 @@ def get_dataframes(
         else:
             lap_df["intensity"] = [None] * len(lap_df)
 
+    timer.lap(
+        "lap df + intensity matching",
+        laps=len(lap_df),
+        workout_step_indexes=len(wsi),
+    )
+
     # stop if activity df is failed
     try:
         activity_df = pd.DataFrame(activity_data, columns=activity)
@@ -677,6 +703,7 @@ def get_dataframes(
     session_df = create_safe_df(session_data, session, "session_df", activity_id=activity_id)
     length_df = create_safe_df(length_data, length, "length_df", activity_id=activity_id)
     event_df = create_safe_df(event_data, event, "event_df", activity_id=activity_id)
+    timer.lap("build DataFrames", records=len(record_df), lengths=len(length_df))
 
     # Post-processing: Date formatting and fallbacks
     if not file_id_df.empty and "time_created" in file_id_df.columns:
@@ -738,6 +765,8 @@ def get_dataframes(
     if pd.isna(activity_df["timestamp"]).any():
         earliest_time = session_df["start_time"].min()
         activity_df["timestamp"] = activity_df["timestamp"].fillna(earliest_time)
+
+    timer.lap("post-processing", records=len(record_df))
 
     return lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df
 

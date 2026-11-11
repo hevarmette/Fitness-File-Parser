@@ -29,6 +29,7 @@ from helpers import (
     is_watch_filename,
     peek_file_id_key,
 )
+from timing_log import StageTimer, configure_logging
 from watch_files_to_sql import write_sql_statement_to_file
 
 # -------------------------
@@ -230,6 +231,7 @@ if __name__ == "__main__":
         help="Simulate run without parsing full records or inserting into the database.",
     )
     args = parser.parse_args()
+    configure_logging()
 
     # Secondary logic: check if file_id already exists in the DB instead of after_date.
     CHECK_DB_FOR_EXISTING = args.check_existing
@@ -284,15 +286,19 @@ if __name__ == "__main__":
     fallback_id = 1000000000
     for file in filtered_files:
         fname = dir + file
+        # Per-stage timing + hang watchdog for this file (see timing_log.py).
+        timer = StageTimer(file, watch_hangs=True)
 
         # Parse FIT file into DataFrames (or stop after the file_id header frame
         # if CHECK_DB_FOR_EXISTING is True and the file_id already exists in the DB).
         lap_df, record_df, file_id_df, activity_df, session_df, length_df, event_df = (
             get_dataframes(fname, existing_file_ids=existing_file_ids)
         )
+        timer.lap("decode total (get_dataframes)")
 
         if activity_df.empty:
             print(f"[SKIP] {file}: file_id already exists in database.")
+            timer.finish("skipped: file_id already in database")
             continue
 
         # Pre-process Activity DF:
@@ -301,6 +307,7 @@ if __name__ == "__main__":
         activity_df.loc[0, "adjusted_distance"] = session_df["total_distance"].sum()
         activity_df.loc[0, "adjusted_duration"] = session_df["total_timer_time"].sum()
         activity_df.loc[0, "activity_name"] = build_default_activity_name(session_df, activity_df)
+        timer.lap("activity name (may reverse geocode)")
 
         # ---------------------------
         # Insert ACTIVITY first
@@ -309,7 +316,7 @@ if __name__ == "__main__":
         print("Inserting activity...")
 
         new_activity_id = db_insert_dataframe(activity_df, "activity", conn, return_id=True)
-
+        timer.lap("insert activity")
         # NOTE: This line forces the fallback logic regardless of success.
         # new_activity_id = None
 
@@ -339,6 +346,7 @@ if __name__ == "__main__":
             write_sql_statement_to_file(session_df, "session")
             write_sql_statement_to_file(length_df, "length")
             write_sql_statement_to_file(event_df, "event")
+            timer.lap("write SQL files (all tables)")
 
             print("Skipped DB inserts for this file due to activity failure.\n")
             fallback_id += 1
@@ -358,13 +366,21 @@ if __name__ == "__main__":
             # ---------------------------
             # Attempt DB insert for children, falling back to SQL file individually if needed
             insert_or_fallback(file_id_df, "file_id")
+            timer.lap("insert file_id", rows=len(file_id_df))
             insert_or_fallback(lap_df, "lap")
+            timer.lap("insert lap", rows=len(lap_df))
             insert_or_fallback(record_df, "record")
+            timer.lap("insert record", rows=len(record_df))
             insert_or_fallback(session_df, "session")
+            timer.lap("insert session", rows=len(session_df))
             insert_or_fallback(length_df, "length")
+            timer.lap("insert length", rows=len(length_df))
             insert_or_fallback(event_df, "event")
+            timer.lap("insert event", rows=len(event_df))
             # NOTE: session parser is using float definitions right now
             if existing_file_ids is not None:
                 file_key = file_id_df_to_key(file_id_df)
                 if file_key is not None:
                     existing_file_ids.add(file_key)
+
+        timer.finish()
