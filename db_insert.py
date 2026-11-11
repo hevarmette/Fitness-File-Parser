@@ -24,6 +24,7 @@ import pandas as pd
 import psycopg
 
 from sql_rows import (
+    INTEGER_COLUMNS,
     TABLE_COLUMNS,
     activity_columns,
     build_activity_insert_sql,
@@ -68,7 +69,7 @@ def insert_activity(df: pd.DataFrame, conn: psycopg.Connection) -> int | None:
     # writer assumes the batch is homogeneous.
     include_id = "activity_id" in df.columns and pd.notna(df["activity_id"].iloc[0])
     columns = activity_columns(include_id)
-    rows = dataframe_to_rows(df, columns)
+    rows = dataframe_to_rows(df, columns, INTEGER_COLUMNS["activity"])
 
     sql = build_activity_insert_sql(columns, returning=True)
     try:
@@ -111,7 +112,7 @@ def insert_table(df: pd.DataFrame, table: str, conn: psycopg.Connection) -> bool
         raise ValueError(f"No column order defined for table {table!r}")
 
     columns = TABLE_COLUMNS[table]
-    rows = dataframe_to_rows(df, columns)
+    rows = dataframe_to_rows(df, columns, INTEGER_COLUMNS[table])
 
     try:
         with conn.cursor() as cursor:

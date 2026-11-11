@@ -23,6 +23,7 @@ insertion. Decoder logic lives in ``helpers.get_dataframes`` and is untouched.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any
 
 import pandas as pd
@@ -166,6 +167,58 @@ ACTIVITY_COLUMNS_NO_ID: list[str] = [
     "event_group",
 ]
 
+# ---------------------------------------------------------------------------
+# INTEGER COLUMNS (smallint / integer / bigint in schema_garmin_data.sql)
+# ---------------------------------------------------------------------------
+#
+# A FIT field that is whole-numbered but *sometimes missing* (e.g. a record
+# with no ``heart_rate`` reading, a lap with no ``avg_power``) makes pandas
+# store the whole DataFrame column as float64 so it can hold NaN: 73 becomes
+# 73.0. Postgres' text ``COPY`` (used for ``record``) rejects "73.0" for a
+# smallint column, so these columns are turned back into ints, with NaN → None,
+# just before insertion. See :func:`dataframe_to_rows`.
+#
+# Only columns that are integer typed in the schema belong here; ``real`` /
+# ``float`` columns (speed, distance, lat/long, ...) must stay floats.
+
+INTEGER_COLUMNS: dict[str, frozenset[str]] = {
+    "activity": frozenset({"workout_feel", "effort", "num_sessions", "event_group"}),
+    "session": frozenset(
+        {
+            "message_index",
+            "total_calories",
+            "avg_power",
+            "total_ascent",
+            "total_descent",
+            "first_lap_index",
+            "num_laps",
+            "avg_heart_rate",
+            "max_heart_rate",
+            "avg_cadence",
+            "max_cadence",
+            "event_group",
+            "pool_length",
+        }
+    ),
+    "lap": frozenset(
+        {
+            "number",
+            "total_ascent",
+            "total_descent",
+            "avg_running_cadence",
+            "max_heart_rate",
+            "avg_heart_rate",
+            "avg_power",
+            "max_power",
+            "normalized_power",
+        }
+    ),
+    "record": frozenset({"lap", "heart_rate", "cadence"}),
+    "file_id": frozenset({"serial_number"}),
+    "length": frozenset({"message_index", "total_strokes"}),
+    "event": frozenset({"event_group"}),
+}
+
 
 def activity_columns(include_id: bool) -> list[str]:
     """Return the ordered ``activity`` column list.
@@ -253,7 +306,37 @@ def strip_local_timestamp_tz(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def dataframe_to_rows(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, ...]]:
+def _whole_floats_as_nullable_int(column: pd.Series) -> pd.Series:
+    """Turn a float column of whole numbers (plus NaN) back into integers.
+
+    Undoes pandas' float upcast for an integer-typed column that contained a
+    missing value (``[73, NaN, 75]`` is stored as ``[73.0, NaN, 75.0]``). NaN
+    becomes ``pd.NA``, which :func:`dataframe_to_rows` then emits as ``None``.
+    Values come back as plain Python ``int`` (object dtype), not numpy scalars.
+
+    A column holding any genuinely fractional value is returned unchanged:
+    silently truncating real data is worse than letting the database report it.
+
+    Args:
+        column: One DataFrame column.
+
+    Returns:
+        pd.Series: An object series of ``int`` / ``pd.NA`` when ``column`` is a
+        float column holding only whole numbers and NaN, otherwise ``column``
+        itself.
+    """
+    if not pd.api.types.is_float_dtype(column):
+        return column
+    if not (column.dropna() % 1 == 0).all():
+        return column
+    return column.astype("Int64").astype(object)  # object → plain Python ints, not numpy
+
+
+def dataframe_to_rows(
+    df: pd.DataFrame,
+    columns: list[str],
+    integer_columns: Collection[str] = (),
+) -> list[tuple[Any, ...]]:
     """Convert a DataFrame into value tuples in a fixed column order.
 
     Columns absent from ``df`` are treated as entirely missing (all ``None``),
@@ -268,6 +351,10 @@ def dataframe_to_rows(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, .
     Args:
         df: The decoded DataFrame to convert.
         columns: The exact, ordered column names to emit per row.
+        integer_columns: Columns that are integer typed in the database (see
+            :data:`INTEGER_COLUMNS`). If pandas upcast one to float because of a
+            missing value, its whole numbers are emitted as ``int`` again
+            (``73.0`` → ``73``) so ``COPY`` accepts them.
 
     Returns:
         list[tuple[Any, ...]]: One tuple per DataFrame row, each in ``columns``
@@ -275,8 +362,13 @@ def dataframe_to_rows(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, .
     """
     # Reindex to the requested order; missing columns arrive as NaN, which the
     # normalization below turns into None. This keeps the column order explicit
-    # and identical to the INSERT column list.
+    # and identical to the INSERT column list. reindex returns a new frame, so
+    # the integer fix-up below never modifies the caller's DataFrame.
     ordered = df.reindex(columns=columns)
+
+    for name in integer_columns:
+        if name in ordered.columns:
+            ordered[name] = _whole_floats_as_nullable_int(ordered[name])
 
     rows: list[tuple[Any, ...]] = []
     for record in ordered.itertuples(index=False, name=None):
