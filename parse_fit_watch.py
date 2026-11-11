@@ -87,17 +87,27 @@ def build_default_activity_name(session_df: pd.DataFrame, activity_df: pd.DataFr
     Generates default activity name based on location and sport type.
 
     Logic:
-    - "{City} {Sport}"
+    - If the activity was based on a structured workout, use the workout title
+      (FIT ``workout.wkt_name``, e.g. "5x(400m, 300m, 200m)")
+    - Otherwise "{City} {Sport}"
     - Or "{County} {Sport}"
     - Sport replaced with 'Multisport' if activity_df.num_sessions > 1
 
     Args:
         session_df (pd.DataFrame): DataFrame containing session data (lat/lon/sport).
         activity_df (pd.DataFrame): DataFrame containing activity summary (num_sessions).
+            ``activity_df.attrs["workout_name"]`` holds the workout title, if any.
 
     Returns:
         str: A formatted string for the activity name (e.g., "London Running").
     """
+
+    # ---------- Workout title ----------
+    # A workout-based activity is better described by its workout than by its
+    # location, so this skips the reverse-geocode request entirely.
+    workout_name = activity_df.attrs.get("workout_name")
+    if workout_name:
+        return str(workout_name)
 
     # ---------- Activity Type ----------
     # Default to 1 for a fallback

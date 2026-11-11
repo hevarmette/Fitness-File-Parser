@@ -124,10 +124,23 @@ event = ["timestamp", "event", "event_type", "data", "event_group"]
 # `workout_step`, which carries the per-step `intensity` values (warmup / active
 # / rest / recovery / cooldown) that the lap intensity-matching logic depends on.
 # `lap` supplies both `intensity` and `wkt_step_index`; `workout_step` supplies
-# only `intensity`. Any frame whose name is not in this set contributes nothing
-# to the decoded output and can be skipped early.
+# only `intensity`. `workout` carries `wkt_name`, the title of the structured
+# workout the activity was based on (e.g. "5x(400m, 300m, 200m)"); it is exposed
+# on `activity_df.attrs["workout_name"]` rather than as a table column. Any frame
+# whose name is not in this set contributes nothing to the decoded output and can
+# be skipped early.
 WANTED_MESSAGE_NAMES: frozenset[str] = frozenset(
-    {"record", "lap", "file_id", "activity", "session", "length", "event", "workout_step"}
+    {
+        "record",
+        "lap",
+        "file_id",
+        "activity",
+        "session",
+        "length",
+        "event",
+        "workout_step",
+        "workout",
+    }
 )
 
 DIVISOR = (2**32) / 360
@@ -546,6 +559,9 @@ def get_dataframes(
     wsi = []
     # just initially the intensity value for a lap. it may be present
     has_intensity = False
+    # Title of the structured workout the activity was based on (`workout.wkt_name`),
+    # if any. Not a schema column, so it is attached to activity_df.attrs below.
+    workout_name: str | None = None
 
     # Iterate through the FIT file. `fitdecode` yields every frame type in the
     # file, but the schema only uses the names in WANTED_MESSAGE_NAMES. We skip
@@ -612,6 +628,10 @@ def get_dataframes(
             elif frame.name == "event":
                 event_data.append(get_fit_other_data(event, frame))
 
+            elif frame.name == "workout":
+                # Some files contain a `workout` message with no name; keep None then.
+                workout_name = frame.get_value("wkt_name", fallback=None) or None
+
     # Build DataFrames
     lap_df = create_safe_df(lap_data, lap, "lap_df", activity_id)
 
@@ -649,6 +669,9 @@ def get_dataframes(
         activity_df = pd.DataFrame(activity_data, columns=activity)
     except Exception as e:
         raise ValueError(f"CRITICAL: activity_df failed: {e}")
+    # Metadata only: DataFrame.attrs does not add a column, so the decoded
+    # activity table and the SQL written from it are unchanged.
+    activity_df.attrs["workout_name"] = workout_name
     record_df = create_safe_df(record_data, record, "record_df", activity_id=activity_id)
     file_id_df = create_safe_df(file_id_data, file_id, "file_id_df", activity_id=activity_id)
     session_df = create_safe_df(session_data, session, "session_df", activity_id=activity_id)
